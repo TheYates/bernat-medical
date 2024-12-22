@@ -18,7 +18,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthrough": true,
+    // "noFallthrough": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

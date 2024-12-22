@@ -11,6 +11,8 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Package,
 } from 'lucide-react';
 import { AccessType } from '@/types/user';
 import { Icons } from '@/components/icons';
@@ -58,6 +60,20 @@ const links: SidebarLink[] = [
     label: 'Settings',
     href: '/dashboard/settings',
     roles: ['admin'],
+    requiredAccess: 'settings',
+  },
+  {
+    icon: FileText,
+    label: 'Reports',
+    href: '/dashboard/reports',
+    roles: ['admin'],
+    requiredAccess: 'settings',
+  },
+  {
+    icon: Package,
+    label: 'Inventory',
+    href: '/dashboard/inventory',
+    roles: ['admin', 'user'],
     requiredAccess: 'settings',
   },
 ];

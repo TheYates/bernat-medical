@@ -1,37 +1,20 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { LoginPage } from '@/pages/Login';
-import { DashboardPage } from '@/pages/Dashboard';
-import { SettingsPage } from '@/pages/Settings';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { ThemeProvider } from "@/components/ui/theme-provider"
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from 'react-router-dom';
+import { router } from './routes';
+import { Toaster } from '@/components/ui/sonner';
 
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LoginPage />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Router>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+          <Toaster />
+        </QueryClientProvider>
       </AuthProvider>
     </ThemeProvider>
   );

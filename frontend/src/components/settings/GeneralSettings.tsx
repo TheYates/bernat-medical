@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
 const clinicSettingsSchema = z.object({
+  clinicName: z.string().min(2, 'Clinic name is required'),
   idPrefix: z.string()
     .min(2, 'Prefix must be at least 2 characters')
     .max(5, 'Prefix cannot exceed 5 characters')
@@ -22,6 +25,9 @@ const clinicSettingsSchema = z.object({
     .int('Must be a whole number')
     .min(4, 'Must be at least 4 digits')
     .max(8, 'Cannot exceed 8 digits'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  phone: z.string().min(10, 'Phone number is required').optional().or(z.literal('')),
+  address: z.string().min(5, 'Address is required').optional().or(z.literal(''))
 });
 
 export function GeneralSettings() {
@@ -29,16 +35,43 @@ export function GeneralSettings() {
   const form = useForm({
     resolver: zodResolver(clinicSettingsSchema),
     defaultValues: {
+      clinicName: '',
+      email: '',
+      phone: '',
+      address: '',
       idPrefix: 'CLN',
       startingNumber: 1,
       digitLength: 6,
     },
   });
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await api.get('/clinic/settings');
+        const settings = response.data;
+        
+        form.reset({
+          clinicName: settings.clinicName,
+          email: settings.email || '',
+          phone: settings.phone || '',
+          address: settings.address || '',
+          idPrefix: settings.idPrefix,
+          startingNumber: settings.startingNumber,
+          digitLength: settings.digitLength,
+        });
+      } catch (error) {
+        toast.error('Failed to load clinic settings');
+      }
+    };
+
+    fetchSettings();
+  }, [form]);
+
   const onSubmit = async (data: z.infer<typeof clinicSettingsSchema>) => {
     try {
       setIsLoading(true);
-      await api.put('/settings/clinic', data);
+      await api.put('/clinic/settings', data);
       toast.success('Clinic settings updated successfully');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update settings');
@@ -58,14 +91,68 @@ export function GeneralSettings() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Clinic ID Format</CardTitle>
+          <CardTitle>Clinic Information</CardTitle>
           <CardDescription>
-            Configure how patient IDs are generated
+            Manage your clinic's basic information
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="clinicName">Clinic Name</Label>
+                <Input
+                  id="clinicName"
+                  {...form.register('clinicName')}
+                />
+                {form.formState.errors.clinicName && (
+                  <p className="text-sm text-red-500">{form.formState.errors.clinicName.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...form.register('email')}
+                />
+                {form.formState.errors.email && (
+                  <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  {...form.register('phone')}
+                />
+                {form.formState.errors.phone && (
+                  <p className="text-sm text-red-500">{form.formState.errors.phone.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  {...form.register('address')}
+                />
+                {form.formState.errors.address && (
+                  <p className="text-sm text-red-500">{form.formState.errors.address.message}</p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="text-lg font-medium">Patient ID Format</h3>
+              <p className="text-sm text-muted-foreground">Configure how patient IDs are generated</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="idPrefix">ID Prefix</Label>
                 <Input

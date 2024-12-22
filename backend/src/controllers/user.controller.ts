@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db';
 import type { ResultSetHeader, RowDataPacket, FieldPacket } from 'mysql2';
+import { createAuditLog, getClientIp } from '../services/audit.service';
 
 export const register = async (req: Request, res: Response) => {
   try {

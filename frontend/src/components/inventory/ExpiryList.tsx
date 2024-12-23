@@ -26,8 +26,15 @@ export function ExpiryList() {
   const { data: drugs, isLoading } = useQuery({
     queryKey: ['expiring-drugs'],
     queryFn: async () => {
-      const response = await api.get('/inventory/expiring');
-      return response.data;
+      console.log('Fetching expiring drugs...');
+      try {
+        const response = await api.get('/inventory/drugs/expiring');
+        console.log('Response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching expiring drugs:', error);
+        throw error;
+      }
     },
   });
 

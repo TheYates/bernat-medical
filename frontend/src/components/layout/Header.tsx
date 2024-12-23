@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/ui/mode-toggle';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,7 @@ export function Header() {
     <header className="h-16 border-b bg-card flex items-center px-6 justify-between">
       <div></div>
       <div className="flex items-center gap-4">
+        <NotificationBell />
         <ModeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

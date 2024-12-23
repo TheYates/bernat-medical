@@ -6,3 +6,8 @@ VALUES (
   'System Administrator',
   'admin'
 ); 
+
+-- Update admin user with access
+UPDATE users 
+SET access = JSON_ARRAY('appointments', 'records', 'settings')
+WHERE username = 'admin';

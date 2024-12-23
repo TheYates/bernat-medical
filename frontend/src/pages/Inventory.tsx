@@ -25,8 +25,12 @@ import { EditDrugDialog } from '@/components/inventory/EditDrugDialog';
 import { RestockDrugDialog } from '@/components/inventory/RestockDrugDialog';
 import { useState } from 'react';
 import { Drug } from '@/types/inventory';
+import { PendingRestocks } from '@/components/inventory/PendingRestocks';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function InventoryPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRestockDialog, setShowRestockDialog] = useState(false);
@@ -160,10 +164,11 @@ export function InventoryPage() {
             <CardTitle>Inventory</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="drugs">
+            <Tabs defaultValue="drugs" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="drugs">Drugs</TabsTrigger>
                 <TabsTrigger value="restock">Restock</TabsTrigger>
+                {isAdmin && <TabsTrigger value="pending">Pending Restocks</TabsTrigger>}
                 <TabsTrigger value="low-stock">Low Stock</TabsTrigger>
                 <TabsTrigger value="expiry">Expiry</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -183,6 +188,11 @@ export function InventoryPage() {
               <TabsContent value="settings">
                 <InventorySettings />
               </TabsContent>
+              {isAdmin && (
+                <TabsContent value="pending">
+                  <PendingRestocks />
+                </TabsContent>
+              )}
             </Tabs>
           </CardContent>
         </Card>

@@ -1,149 +1,233 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useForm } from 'react-hook-form';
 
-const restockSchema = z.object({
-  purchaseQuantity: z.number().min(1, 'Quantity must be positive'),
-  batchNumber: z.string().min(1, 'Batch number is required'),
-  expiryDate: z.string().min(1, 'Expiry date is required'),
-  notes: z.string().optional(),
-});
-
-interface RestockDialogProps {
-  drug: {
-    id: number;
-    name: string;
-    purchaseForm: string;
-    saleForm: string;
-    unitsPerPurchase: number;
-    strength: string;
-    unit: string;
-  };
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+interface RestockFormData {
+  drugId: number;
+  vendorId: number;
+  purchaseUnit: 'purchase' | 'sale'; // Whether buying in purchase or sale units
+  quantity: number;
+  batchNumber: string;
+  expiryDate: string;
+  notes?: string;
 }
 
-export function RestockDialog({ drug, open, onOpenChange, onSuccess }: RestockDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [saleUnits, setSaleUnits] = useState(0);
+interface RestockDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: RestockItem) => void;
+}
 
-  const form = useForm({
-    resolver: zodResolver(restockSchema),
-    defaultValues: {
-      purchaseQuantity: 1,
-      batchNumber: '',
-      expiryDate: '',
-      notes: '',
-    },
+interface Drug {
+  id: number;
+  name: string;
+  purchase: {
+    form: string;
+    unitsPerPurchase: number;
+  };
+  sale: {
+    form: string;
+  };
+}
+
+interface Vendor {
+  id: number;
+  name: string;
+}
+
+export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
+  const [selectedUnit, setSelectedUnit] = useState<'purchase' | 'sale'>('purchase');
+  
+  const { data: drugs } = useQuery({
+    queryKey: ['drugs'],
+    queryFn: async () => {
+      const response = await api.get('/inventory/drugs');
+      return response.data;
+    }
   });
 
-  // Calculate sale units when purchase quantity changes
-  const purchaseQuantity = form.watch('purchaseQuantity');
-  useEffect(() => {
-    setSaleUnits(purchaseQuantity * drug.unitsPerPurchase);
-  }, [purchaseQuantity, drug.unitsPerPurchase]);
-
-  const onSubmit = async (data: z.infer<typeof restockSchema>) => {
-    try {
-      setIsLoading(true);
-      await api.post(`/inventory/drugs/${drug.id}/restock`, {
-        ...data,
-        saleQuantity: saleUnits,
-      });
-      toast.success('Stock added successfully');
-      form.reset();
-      onSuccess();
-      onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add stock');
-    } finally {
-      setIsLoading(false);
+  const { data: vendors } = useQuery({
+    queryKey: ['vendors'],
+    queryFn: async () => {
+      const response = await api.get('/inventory/vendors');
+      return response.data;
     }
+  });
+
+  const form = useForm<RestockFormData>();
+
+  const selectedDrug = drugs?.find((d: Drug) => d.id === form.watch('drugId'));
+
+  const handleSubmit = async (data: RestockFormData) => {
+    const selectedDrug = drugs?.find(d => d.id === data.drugId);
+    const selectedVendor = vendors?.find(v => v.id === data.vendorId);
+
+    if (!selectedDrug || !selectedVendor) return;
+
+    const purchaseQuantity = selectedUnit === 'purchase' ? data.quantity : 
+      Math.ceil(data.quantity / (selectedDrug.unitsPerPurchase || 1));
+    const saleQuantity = selectedUnit === 'sale' ? data.quantity :
+      data.quantity * (selectedDrug.unitsPerPurchase || 1);
+
+    onSubmit({
+      drugId: data.drugId,
+      drugName: selectedDrug.name,
+      vendorId: data.vendorId,
+      vendorName: selectedVendor.name,
+      purchaseUnit: data.purchaseUnit,
+      quantity: data.quantity,
+      batchNumber: data.batchNumber,
+      expiryDate: data.expiryDate,
+      purchaseForm: selectedDrug.purchase.form,
+      saleForm: selectedDrug.sale.form,
+      purchaseQuantity,
+      saleQuantity,
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Restock {drug.name}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            {drug.strength} {drug.unit}
-          </p>
+          <DialogTitle>Restock Drug</DialogTitle>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Purchase Quantity ({drug.purchaseForm}s)</Label>
-            <Input
-              type="number"
-              {...form.register('purchaseQuantity', { valueAsNumber: true })}
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* Drug Selection */}
+            <FormField
+              control={form.control}
+              name="drugId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Drug</FormLabel>
+                  <Combobox
+                    options={drugs?.map((drug: Drug) => ({
+                      label: drug.name,
+                      value: drug.id
+                    })) || []}
+                    {...field}
+                  />
+                </FormItem>
+              )}
             />
-            {form.formState.errors.purchaseQuantity && (
-              <p className="text-sm text-red-500">
-                {form.formState.errors.purchaseQuantity.message}
-              </p>
-            )}
-          </div>
 
-          <div className="rounded-lg bg-muted p-3">
-            <p className="text-sm font-medium">Will add:</p>
-            <p className="text-2xl font-bold">{saleUnits} {drug.saleForm}s</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Batch Number</Label>
-            <Input {...form.register('batchNumber')} />
-            {form.formState.errors.batchNumber && (
-              <p className="text-sm text-red-500">
-                {form.formState.errors.batchNumber.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Expiry Date</Label>
-            <Input type="date" {...form.register('expiryDate')} />
-            {form.formState.errors.expiryDate && (
-              <p className="text-sm text-red-500">
-                {form.formState.errors.expiryDate.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Notes (Optional)</Label>
-            <Textarea
-              {...form.register('notes')}
-              placeholder="Add any additional notes"
+            {/* Vendor Selection */}
+            <FormField
+              control={form.control}
+              name="vendorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vendor</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendors?.map((vendor: Vendor) => (
+                        <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                          {vendor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Adding...' : 'Add Stock'}
-            </Button>
-          </div>
+            {/* Unit Selection */}
+            <FormField
+              control={form.control}
+              name="purchaseUnit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Purchase In</FormLabel>
+                  <Select 
+                    onValueChange={(value: 'purchase' | 'sale') => {
+                      setSelectedUnit(value);
+                      field.onChange(value);
+                    }} 
+                    value={field.value}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="purchase">
+                        {selectedDrug?.purchase.form} (Purchase Unit)
+                      </SelectItem>
+                      <SelectItem value="sale">
+                        {selectedDrug?.sale.form} (Sale Unit)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            {/* Rest of the form fields */}
+            <FormField
+              control={form.control}
+              name="quantity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantity</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="batchNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Batch Number</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="expiryDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expiry Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit">Submit</Button>
         </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

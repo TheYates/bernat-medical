@@ -7,7 +7,6 @@ export interface User {
   fullName: string;
   role: UserRole;
   access: AccessType[];
-  createdAt: string;
 }
 
 export interface CreateUserData {

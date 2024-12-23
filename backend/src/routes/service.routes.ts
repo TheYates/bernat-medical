@@ -1,4 +1,4 @@
-import { Router, RequestHandler } from 'express';
+import { Router } from 'express';
 import { 
   getServices, 
   createService, 
@@ -10,10 +10,10 @@ import { isAdmin } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', getServices as RequestHandler);
-router.post('/', isAdmin as RequestHandler, createService as RequestHandler);
-router.put('/:id', isAdmin as RequestHandler, updateService as RequestHandler);
-router.delete('/:id', isAdmin as RequestHandler, deleteService as RequestHandler);
-router.patch('/:id/toggle-status', isAdmin as RequestHandler, toggleServiceStatus as RequestHandler);
+router.get('/', getServices);
+router.post('/', isAdmin, createService);
+router.put('/:id', isAdmin, updateService);
+router.delete('/:id', isAdmin, deleteService);
+router.patch('/:id/toggle-status', isAdmin, toggleServiceStatus);
 
-export const serviceRouter = router; 
+export default router; 

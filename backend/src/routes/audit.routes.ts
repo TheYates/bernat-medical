@@ -1,9 +1,9 @@
-import { Router, RequestHandler } from 'express';
+import { Router } from 'express';
 import { getAuditLogs } from '../controllers/audit.controller';
-import { isAdmin } from '../middleware/auth';
+import { authenticate, isAdmin } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', isAdmin as RequestHandler, getAuditLogs as RequestHandler);
+router.get('/', authenticate, isAdmin, getAuditLogs);
 
-export const auditRouter = router; 
+export default router; 

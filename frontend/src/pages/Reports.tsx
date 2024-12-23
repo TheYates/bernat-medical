@@ -9,7 +9,7 @@ export function ReportsPage() {
   const { data: auditData, isLoading: isAuditLoading } = useQuery({
     queryKey: ['audit-logs'],
     queryFn: async () => {
-      const response = await api.get('/audit?page=1&limit=50');
+      const response = await api.get('/audit');
       return response.data;
     },
   });

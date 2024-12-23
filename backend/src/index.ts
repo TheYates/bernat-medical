@@ -1,26 +1,42 @@
 import express from 'express';
 import cors from 'cors';
-import { userRouter } from './routes/user.routes';
-import { serviceRouter } from './routes/service.routes';
-import { settingsRouter } from './routes/settings.routes';
-import { auditRouter } from './routes/audit.routes';
-import { clinicRouter } from './routes/clinic.routes';
-import { inventoryRouter } from './routes/inventory.routes';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import { errorHandler } from './middleware/error';
+import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
+import clinicRoutes from './routes/clinic.routes';
+import inventoryRoutes from './routes/inventory.routes';
+import auditRoutes from './routes/audit.routes';
+import notificationRoutes from './routes/notification.routes';
+import { config } from 'dotenv';
+
+// Load environment variables
+config();
 
 const app = express();
+const port = process.env.PORT || 5000;
 
-app.use(cors());
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(morgan('dev'));
 app.use(express.json());
+app.use(cookieParser());
 
-app.use('/api/users', userRouter);
-app.use('/api/services', serviceRouter);
-app.use('/api/settings', settingsRouter);
-app.use('/api/audit', auditRouter);
-app.use('/api/clinic', clinicRouter);
-app.use('/api/inventory', inventoryRouter);
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/clinic', clinicRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/notifications', notificationRoutes);
 
-const PORT = process.env.PORT || 5000;
+// Error handling
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

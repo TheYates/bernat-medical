@@ -42,6 +42,13 @@ const links: SidebarLink[] = [
     requiredAccess: 'settings',
   },
   {
+    icon: Package,
+    label: 'Inventory',
+    href: '/dashboard/inventory',
+    roles: ['admin', 'user'],
+    requiredAccess: 'settings',
+  },
+  {
     icon: Calendar,
     label: 'Appointments',
     href: '/dashboard/appointments',
@@ -69,13 +76,6 @@ const links: SidebarLink[] = [
     roles: ['admin'],
     requiredAccess: 'settings',
   },
-  {
-    icon: Package,
-    label: 'Inventory',
-    href: '/dashboard/inventory',
-    roles: ['admin', 'user'],
-    requiredAccess: 'settings',
-  },
 ];
 
 export function Sidebar() {
@@ -83,12 +83,15 @@ export function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
+  console.log('Current user:', user);
+
   const filteredLinks = links.filter((link) => {
-    if (!link.roles.includes(user?.role || '')) return false;
-    if (link.requiredAccess && !user?.access?.includes(link.requiredAccess)) {
-      return false;
-    }
-    return true;
+    const hasRole = link.roles.includes(user?.role || '');
+    const hasAccess = !link.requiredAccess || user?.access?.includes(link.requiredAccess);
+    
+    console.log(`Link ${link.label}:`, { hasRole, hasAccess });
+    
+    return hasRole && hasAccess;
   });
 
   return (

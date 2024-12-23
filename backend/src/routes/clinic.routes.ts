@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { getClinicSettings, updateClinicSettings } from '../controllers/clinic.controller';
-import { isAdmin } from '../middleware/auth';
+import { authenticate, isAdmin } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/settings', getClinicSettings as any);
-router.put('/settings', isAdmin as any, updateClinicSettings as any);
+router.get('/settings', authenticate, getClinicSettings);
+router.put('/settings', authenticate, isAdmin, updateClinicSettings);
 
-export const clinicRouter = router; 
+export default router; 

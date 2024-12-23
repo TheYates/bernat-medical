@@ -20,12 +20,25 @@ CREATE TABLE drug_categories (
 );
 
 -- Drug forms table
-CREATE TABLE drug_forms (
+CREATE TABLE IF NOT EXISTS drug_forms (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Insert some default forms if needed
+INSERT INTO drug_forms (name) VALUES 
+('Box'),
+('Pack'),
+('Strip'),
+('Tablet'),
+('Bottle'),
+('Tube'),
+('Container'),
+('Piece'),
+('Ampoule'),
+('Vial');
 
 -- New drugs table structure
 CREATE TABLE drugs (
@@ -96,4 +109,57 @@ INSERT INTO drug_forms (name) VALUES
 ('Piece'),
 ('Ampoule'),
 ('Vial');
+
+-- Test query for low stock
+SELECT 
+  d.id,
+  d.name,
+  dc.name as category,
+  sf.name as form,
+  d.strength,
+  d.unit,
+  d.stock,
+  d.min_stock as minStock
+FROM drugs d
+JOIN drug_categories dc ON d.category_id = dc.id
+JOIN drug_forms sf ON d.sale_form_id = sf.id
+WHERE d.stock <= d.min_stock 
+  AND d.active = true
+ORDER BY d.stock ASC;
+  
+ALTER TABLE stock_transactions
+ADD COLUMN vendor_id INT,
+ADD FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+  
+-- Vendors table
+CREATE TABLE IF NOT EXISTS vendors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    contact_person VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    address TEXT,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add some sample vendors
+INSERT INTO vendors (name, contact_person, phone) VALUES 
+('PharmaCare Ltd', 'John Doe', '+254700000000'),
+('MediSupply Co', 'Jane Smith', '+254711111111'),
+('HealthPlus Distributors', 'Bob Johnson', '+254722222222');
+  
+ALTER TABLE stock_transactions
+ADD COLUMN reference_number VARCHAR(100);
+  
+ALTER TABLE stock_transactions
+ADD COLUMN status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+ADD COLUMN approved_by INT NULL,
+ADD COLUMN approved_at TIMESTAMP NULL,
+ADD FOREIGN KEY (approved_by) REFERENCES users(id);
+  
+-- Update stock_transactions table to include timestamps
+ALTER TABLE stock_transactions
+MODIFY created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN approved_at TIMESTAMP NULL;
   

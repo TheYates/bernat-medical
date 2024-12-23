@@ -17,6 +17,14 @@ import { CategoryActions } from './CategoryActions';
 import { FormActions } from './FormActions';
 import { AddCategoryDialog } from './AddCategoryDialog';
 import { AddFormDialog } from './AddFormDialog';
+import { VendorList } from './VendorList';
+import { InsuranceList } from './InsuranceList';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface Category {
   id: number;
@@ -64,83 +72,109 @@ export function InventorySettings() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Categories Table */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Categories</CardTitle>
-            <Button onClick={() => setShowAddCategory(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              placeholder="Filter categories..."
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            />
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCategories?.map((category: Category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell>{category.description || '-'}</TableCell>
-                    <TableCell>
-                      <CategoryActions category={category} onSuccess={refetchCategories} />
-                    </TableCell>
+      <Accordion type="single" collapsible className="space-y-4">
+        <AccordionItem value="categories" className="border rounded-lg">
+          <AccordionTrigger className="px-4">
+            <h3 className="text-lg font-semibold">Categories</h3>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Input
+                  placeholder="Filter categories..."
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="max-w-sm"
+                />
+                <Button onClick={() => setShowAddCategory(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Category
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories?.map((category: Category) => (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell>{category.description || '-'}</TableCell>
+                      <TableCell>
+                        <CategoryActions category={category} onSuccess={refetchCategories} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
-        {/* Forms Table */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Forms</CardTitle>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Form
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              placeholder="Filter forms..."
-              value={formFilter}
-              onChange={(e) => setFormFilter(e.target.value)}
-            />
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredForms?.map((form: Form) => (
-                  <TableRow key={form.id}>
-                    <TableCell className="font-medium">{form.name}</TableCell>
-                    <TableCell>{form.description || '-'}</TableCell>
-                    <TableCell>
-                      <FormActions form={form} onSuccess={refetchForms} />
-                    </TableCell>
+        <AccordionItem value="forms" className="border rounded-lg">
+          <AccordionTrigger className="px-4">
+            <h3 className="text-lg font-semibold">Forms</h3>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Input
+                  placeholder="Filter forms..."
+                  value={formFilter}
+                  onChange={(e) => setFormFilter(e.target.value)}
+                  className="max-w-sm"
+                />
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Form
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredForms?.map((form: Form) => (
+                    <TableRow key={form.id}>
+                      <TableCell className="font-medium">{form.name}</TableCell>
+                      <TableCell>{form.description || '-'}</TableCell>
+                      <TableCell>
+                        <FormActions form={form} onSuccess={refetchForms} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="vendors" className="border rounded-lg">
+          <AccordionTrigger className="px-4">
+            <h3 className="text-lg font-semibold">Vendors</h3>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-4">
+            <VendorList />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="insurance" className="border rounded-lg">
+          <AccordionTrigger className="px-4">
+            <h3 className="text-lg font-semibold">Insurance Companies</h3>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pt-4">
+            <InsuranceList />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Pagination */}
       <div className="flex items-center justify-between">

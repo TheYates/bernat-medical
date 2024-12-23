@@ -1,15 +1,8 @@
-import type { Request as ExpressRequest, Response } from 'express';
+import { Request, Response } from 'express';
 import { pool } from '../db';
 import type { RowDataPacket } from 'mysql2';
 import { createAuditLog, getClientIp } from '../services/audit.service';
-
-// Use our extended Request type that includes user
-type Request = ExpressRequest & {
-  user: {
-    id: number;
-    role: string;
-  }
-};
+import type { AuthenticatedRequest } from '../types/auth';
 
 export const getClinicSettings = async (req: Request, res: Response) => {
   try {
@@ -21,26 +14,15 @@ export const getClinicSettings = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Settings not found' });
     }
 
-    const {
-      clinic_name,
-      email,
-      phone,
-      address,
-      id_prefix,
-      starting_number,
-      digit_length,
-      last_number
-    } = settings[0];
-
     res.json({
-      clinicName: clinic_name,
-      email,
-      phone,
-      address,
-      idPrefix: id_prefix,
-      startingNumber: starting_number,
-      digitLength: digit_length,
-      lastNumber: last_number
+      clinicName: settings[0].clinic_name,
+      email: settings[0].email,
+      phone: settings[0].phone,
+      address: settings[0].address,
+      idPrefix: settings[0].id_prefix,
+      startingNumber: settings[0].starting_number,
+      digitLength: settings[0].digit_length,
+      lastNumber: settings[0].last_number,
     });
   } catch (error) {
     console.error('Error fetching clinic settings:', error);
@@ -48,51 +30,41 @@ export const getClinicSettings = async (req: Request, res: Response) => {
   }
 };
 
-export const updateClinicSettings = async (req: Request, res: Response) => {
+export const updateClinicSettings = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const {
-      clinicName,
-      email = null,
-      phone = null,
-      address = null,
+    const { 
+      clinicName, 
+      email, 
+      phone, 
+      address,
       idPrefix,
       startingNumber,
-      digitLength
+      digitLength 
     } = req.body;
 
     await pool.execute(
-      `UPDATE clinic_settings SET 
-        clinic_name = ?,
-        email = ?,
-        phone = ?,
-        address = ?,
-        id_prefix = ?,
-        starting_number = ?,
-        digit_length = ?
-      WHERE id = 1`,
+      `UPDATE clinic_settings 
+       SET clinic_name = ?, 
+           email = ?, 
+           phone = ?, 
+           address = ?,
+           id_prefix = ?,
+           starting_number = ?,
+           digit_length = ?
+       WHERE id = 1`,
       [clinicName, email, phone, address, idPrefix, startingNumber, digitLength]
     );
 
     await createAuditLog({
       userId: req.user?.id || 0,
       actionType: 'update',
-      entityType: 'setting',
-      details: { type: 'clinic_settings', ...req.body },
+      entityType: 'settings',
+      entityId: 1,
+      details: req.body,
       ipAddress: getClientIp(req)
     });
 
-    res.json({
-      message: 'Clinic settings updated successfully',
-      settings: {
-        clinicName,
-        email,
-        phone,
-        address,
-        idPrefix,
-        startingNumber,
-        digitLength
-      }
-    });
+    res.json({ message: 'Settings updated successfully' });
   } catch (error) {
     console.error('Error updating clinic settings:', error);
     res.status(500).json({ message: 'Server error' });

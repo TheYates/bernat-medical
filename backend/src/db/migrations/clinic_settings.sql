@@ -1,4 +1,4 @@
-CREATE TABLE clinic_settings (
+CREATE TABLE IF NOT EXISTS clinic_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     clinic_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -11,21 +11,15 @@ CREATE TABLE clinic_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Insert default settings
+-- Insert default settings if not exists
 INSERT INTO clinic_settings (
     clinic_name, 
     email, 
     phone, 
-    address, 
-    id_prefix, 
-    starting_number, 
-    digit_length
+    address
 ) VALUES (
     'My Clinic',
     'clinic@example.com',
     '1234567890',
-    'Clinic Address',
-    'CLN',
-    1,
-    6
-); 
+    'Clinic Address'
+) ON DUPLICATE KEY UPDATE id = id; 

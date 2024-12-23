@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { pool } from '../db';
 import type { ResultSetHeader, RowDataPacket, FieldPacket } from 'mysql2';
 import { createAuditLog, getClientIp } from '../services/audit.service';
+import type { AuthenticatedRequest } from '../types/auth';
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -107,37 +108,32 @@ export const getUsers = async (req: Request, res: Response) => {
   try {
     const [users] = await pool.execute(
       'SELECT id, username, full_name, role, access, created_at FROM users'
-    );
+    ) as [RowDataPacket[], any];
 
-    // Transform the results to match the frontend types
-    const transformedUsers = (users as RowDataPacket[]).map(user => ({
-      id: user.id,
-      username: user.username,
+    res.json(users.map(user => ({
+      ...user,
+      access: JSON.parse(user.access || '[]'),
       fullName: user.full_name,
-      role: user.role,
-      access: user.access ? JSON.parse(user.access) : [],
       createdAt: user.created_at
-    }));
-
-    res.json(transformedUsers);
+    })));
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { username, password, fullName, role, access } = req.body;
 
-    // Check if user exists
-    const [existingUsers] = await pool.execute(
-      'SELECT * FROM users WHERE username = ?',
+    // Check if username exists
+    const [existing] = await pool.execute(
+      'SELECT id FROM users WHERE username = ?',
       [username]
-    );
+    ) as [RowDataPacket[], any];
 
-    if (Array.isArray(existingUsers) && existingUsers.length > 0) {
-      return res.status(400).json({ message: 'Username already taken' });
+    if (existing.length) {
+      return res.status(400).json({ message: 'Username already exists' });
     }
 
     // Hash password
@@ -146,19 +142,21 @@ export const createUser = async (req: Request, res: Response) => {
 
     // Insert user
     const [result] = await pool.execute(
-      'INSERT INTO users (username, password, full_name, role, access) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO users (username, password, full_name, role, access) 
+       VALUES (?, ?, ?, ?, ?)`,
       [username, hashedPassword, fullName, role, JSON.stringify(access)]
     );
 
-    const insertResult = result as ResultSetHeader;
-    
-    res.status(201).json({
-      id: insertResult.insertId,
-      username,
-      fullName,
-      role,
-      access,
+    await createAuditLog({
+      userId: req.user?.id || 0,
+      actionType: 'create',
+      entityType: 'user',
+      entityId: (result as any).insertId,
+      details: { username, fullName, role, access },
+      ipAddress: getClientIp(req)
     });
+
+    res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: 'Server error' });

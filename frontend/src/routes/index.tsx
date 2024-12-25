@@ -9,6 +9,7 @@ import { NotFound } from '@/pages/NotFound';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { RegisterPatient } from '@/pages/RegisterPatient';
 import { ServiceRequest } from '@/pages/ServiceRequest';
+import { VitalSigns } from '@/pages/VitalSigns';
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard/service-request',
     element: <ProtectedRoute><ServiceRequest /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/vital-signs',
+    element: <ProtectedRoute><VitalSigns /></ProtectedRoute>,
   },
   {
     path: '*',

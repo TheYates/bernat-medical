@@ -1,0 +1,20 @@
+CREATE TABLE vital_signs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  patient_id INT NOT NULL,
+  systolic INT NOT NULL,
+  diastolic INT NOT NULL,
+  temperature_c DECIMAL(4,1) NOT NULL,
+  temperature_f DECIMAL(4,1) NOT NULL,
+  pulse_rate INT NOT NULL,
+  respiratory_rate INT NOT NULL,
+  weight DECIMAL(5,2),
+  height DECIMAL(5,1),
+  oxygen_saturation INT,
+  fbs DECIMAL(4,1),
+  rbs DECIMAL(4,1),
+  fhr INT,
+  recorded_by INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patients(id),
+  FOREIGN KEY (recorded_by) REFERENCES users(id)
+); 

@@ -14,6 +14,7 @@ import {
   FileText,
   Package,
   UserPlus,
+  Activity,
 } from 'lucide-react';
 import { AccessType } from '@/types/user';
 import { Icons } from '@/components/icons';
@@ -88,6 +89,13 @@ const links: SidebarLink[] = [
     icon: FileText,
     label: 'Service Request',
     href: '/dashboard/service-request',
+    roles: ['admin', 'user'],
+    requiredAccess: 'records',
+  },
+  {
+    icon: Activity,
+    label: 'Vital Signs',
+    href: '/dashboard/vital-signs',
     roles: ['admin', 'user'],
     requiredAccess: 'records',
   },

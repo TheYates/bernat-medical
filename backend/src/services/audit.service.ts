@@ -13,13 +13,22 @@ interface AuditLogData {
   ipAddress?: string;
 }
 
+interface AuditLogParams {
+  userId: number;
+  actionType: string;
+  entityType: string;
+  entityId?: string | number;
+  details?: any;
+  ipAddress?: string;
+}
+
 export const createAuditLog = async (data: {
   userId: number | null;
   actionType: string;
   entityType: string;
   entityId?: number | string;
   details?: any;
-  ipAddress: string;
+  ipAddress?: string;
 }) => {
   try {
     const actualUserId = data.userId || 3;

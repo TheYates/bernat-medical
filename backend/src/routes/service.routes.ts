@@ -1,19 +1,12 @@
-import { Router } from 'express';
-import { 
-  getServices, 
-  createService, 
-  updateService,
-  deleteService,
-  toggleServiceStatus 
-} from '../controllers/service.controller';
-import { isAdmin } from '../middleware/auth';
+import express from 'express';
+import { getServices, createServiceRequest, getServiceRequestHistory, cancelServiceRequest } from '../controllers/service.controller';
+import { authenticate } from '../middleware/auth';
 
-const router = Router();
+const router = express.Router();
 
-router.get('/', getServices);
-router.post('/', isAdmin, createService);
-router.put('/:id', isAdmin, updateService);
-router.delete('/:id', isAdmin, deleteService);
-router.patch('/:id/toggle-status', isAdmin, toggleServiceStatus);
+router.get('/', authenticate, getServices);
+router.post('/request', authenticate, createServiceRequest);
+router.get('/requests/:patientId', authenticate, getServiceRequestHistory);
+router.patch('/requests/:requestId/cancel', authenticate, cancelServiceRequest);
 
 export default router; 

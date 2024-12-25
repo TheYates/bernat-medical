@@ -8,6 +8,7 @@ import { ReportsPage } from '@/pages/Reports';
 import { NotFound } from '@/pages/NotFound';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { RegisterPatient } from '@/pages/RegisterPatient';
+import { ServiceRequest } from '@/pages/ServiceRequest';
 
 export const router = createBrowserRouter([
   {
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard/register-patient',
     element: <ProtectedRoute><RegisterPatient /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/service-request',
+    element: <ProtectedRoute><ServiceRequest /></ProtectedRoute>,
   },
   {
     path: '*',

@@ -84,6 +84,13 @@ const links: SidebarLink[] = [
     roles: ['admin', 'user'],
     requiredAccess: 'records',
   },
+  {
+    icon: FileText,
+    label: 'Service Request',
+    href: '/dashboard/service-request',
+    roles: ['admin', 'user'],
+    requiredAccess: 'records',
+  },
 ];
 
 export function Sidebar() {

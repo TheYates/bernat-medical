@@ -1,0 +1,12 @@
+export interface Patient {
+  id: number;
+  clinicId: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: string;
+  contact: string;
+  maritalStatus?: string;
+  residence?: string;
+}

@@ -1,121 +1,167 @@
-import type { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { pool } from '../db';
-import type { ResultSetHeader } from 'mysql2';
+import { RowDataPacket } from 'mysql2';
+import { AuthenticatedRequest } from '../types/auth';
+import { createAuditLog } from '../services/audit.service';
+
+interface ServiceItem {
+  id: number;
+  name: string;
+  price: number;
+  priceAtTime: number;
+}
 
 export const getServices = async (req: Request, res: Response) => {
   try {
     const [services] = await pool.execute(
-      'SELECT * FROM services ORDER BY created_at DESC'
-    );
+      'SELECT * FROM services ORDER BY category, name'
+    ) as [RowDataPacket[], any];
+
     res.json(services);
   } catch (error) {
     console.error('Error fetching services:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Failed to fetch services' });
   }
 };
 
-export const createService = async (req: Request, res: Response) => {
+export const createServiceRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { code, name, category, price, description } = req.body;
+    const { patientId, services } = req.body;
 
-    // Check if service code exists
-    const [existing] = await pool.execute(
-      'SELECT id FROM services WHERE code = ?',
-      [code]
-    );
+    // Add debug logging
+    console.log('Creating service request:', { patientId, services });
 
-    if (Array.isArray(existing) && existing.length > 0) {
-      return res.status(400).json({ message: 'Service code already exists' });
+    if (!patientId || !services || !Array.isArray(services) || services.length === 0) {
+      return res.status(400).json({ 
+        message: 'Invalid request data. Patient ID and services are required.' 
+      });
     }
 
-    const [result] = await pool.execute(
-      'INSERT INTO services (code, name, category, price, description) VALUES (?, ?, ?, ?, ?)',
-      [code, name, category, price, description]
-    );
+    // Start transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    const insertResult = result as ResultSetHeader;
+    try {
+      // Create service request
+      const [result] = await connection.execute(
+        'INSERT INTO service_requests (patient_id) VALUES (?)',
+        [patientId]
+      ) as [any, any];
+
+      const requestId = result.insertId;
+
+      // Add service items
+      for (const serviceId of services) {
+        const [serviceData] = await connection.execute(
+          'SELECT price FROM services WHERE id = ?',
+          [serviceId]
+        ) as [RowDataPacket[], any];
+
+        if (!serviceData[0]) {
+          throw new Error(`Service with ID ${serviceId} not found`);
+        }
+
+        await connection.execute(
+          'INSERT INTO service_request_items (request_id, service_id, price_at_time) VALUES (?, ?, ?)',
+          [requestId, serviceId, serviceData[0].price]
+        );
+      }
+
+      await connection.commit();
+
+      // Create audit log
+      await createAuditLog({
+        userId: req.user?.id || 0,
+        actionType: 'create',
+        entityType: 'service_request',
+        entityId: requestId.toString(),
+        details: { patientId, services },
+        ipAddress: req.ip || 'unknown'
+      });
+
+      res.status(201).json({ 
+        message: 'Service request created successfully',
+        requestId
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Error creating service request:', error);
+    res.status(500).json({ message: 'Failed to create service request' });
+  }
+};
+
+// Get service request history for a patient
+export const getServiceRequestHistory = async (req: Request, res: Response) => {
+  try {
+    const patientId = req.params.patientId;
     
-    res.status(201).json({
-      id: insertResult.insertId,
-      code,
-      name,
-      category,
-      price,
-      description,
-      active: true,
+    const [requests] = await pool.execute(`
+      SELECT 
+        sr.id, 
+        sr.status, 
+        sr.created_at,
+        JSON_ARRAYAGG(
+          JSON_OBJECT(
+            'id', s.id,
+            'name', s.name,
+            'price', s.price,
+            'priceAtTime', sri.price_at_time
+          )
+        ) as services
+      FROM service_requests sr
+      LEFT JOIN service_request_items sri ON sr.id = sri.request_id
+      LEFT JOIN services s ON sri.service_id = s.id
+      WHERE sr.patient_id = ?
+      GROUP BY sr.id, sr.status, sr.created_at
+      ORDER BY sr.created_at DESC
+    `, [patientId]) as [RowDataPacket[], any];
+
+    // Clean up the results and format dates
+    const cleanedRequests = requests.map(request => ({
+      ...request,
+      createdAt: request.created_at.toISOString(), // Convert MySQL date to ISO string
+      services: request.services.filter(Boolean).map((service: any) => ({
+        ...service,
+        price: Number(service.price),
+        priceAtTime: Number(service.priceAtTime)
+      }))
+    }));
+
+    res.json(cleanedRequests);
+  } catch (error) {
+    console.error('Error fetching service request history:', error);
+    res.status(500).json({ message: 'Failed to fetch service request history' });
+  }
+};
+
+// Cancel a service request
+export const cancelServiceRequest = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const requestId = req.params.requestId;
+    
+    await pool.execute(
+      'UPDATE service_requests SET status = ? WHERE id = ?',
+      ['Cancelled', requestId]
+    );
+
+    // Create audit log
+    await createAuditLog({
+      userId: req.user?.id || 0,
+      actionType: 'update',
+      entityType: 'service_request',
+      entityId: requestId,
+      details: { status: 'Cancelled' },
+      ipAddress: req.ip || 'unknown'
     });
+
+    res.json({ message: 'Service request cancelled successfully' });
   } catch (error) {
-    console.error('Error creating service:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const toggleServiceStatus = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const [result] = await pool.execute(
-      'UPDATE services SET active = NOT active WHERE id = ?',
-      [id]
-    );
-
-    const updateResult = result as ResultSetHeader;
-    if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'Service not found' });
-    }
-
-    res.json({ message: 'Service status updated successfully' });
-  } catch (error) {
-    console.error('Error toggling service status:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const updateService = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { name, category, price, description } = req.body;
-
-    const [result] = await pool.execute(
-      'UPDATE services SET name = ?, category = ?, price = ?, description = ? WHERE id = ?',
-      [name, category, price, description, id]
-    );
-
-    const updateResult = result as ResultSetHeader;
-    if (updateResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'Service not found' });
-    }
-
-    res.json({
-      id: Number(id),
-      name,
-      category,
-      price,
-      description,
-    });
-  } catch (error) {
-    console.error('Error updating service:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const deleteService = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const [result] = await pool.execute(
-      'DELETE FROM services WHERE id = ?',
-      [id]
-    );
-
-    const deleteResult = result as ResultSetHeader;
-    if (deleteResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'Service not found' });
-    }
-
-    res.json({ message: 'Service deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting service:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error cancelling service request:', error);
+    res.status(500).json({ message: 'Failed to cancel service request' });
   }
 }; 

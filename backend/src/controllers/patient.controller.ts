@@ -107,4 +107,96 @@ export const getLastPatientId = async (req: Request, res: Response) => {
     console.error('Error fetching last patient ID:', error);
     res.status(500).json({ message: 'Failed to fetch last patient ID' });
   }
+};
+
+export const getPatientByClinicId = async (req: Request, res: Response) => {
+  try {
+    const clinicId = req.params.clinicId;
+
+    const [patients] = await pool.execute(
+      `SELECT 
+        id, clinic_id, first_name, middle_name, last_name,
+        date_of_birth, gender, contact, marital_status, residence
+      FROM patients 
+      WHERE clinic_id = ?`,
+      [clinicId]
+    ) as [RowDataPacket[], any];
+
+    if (patients.length === 0) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    const patient = patients[0];
+
+    res.json({
+      id: patient.id,
+      clinicId: patient.clinic_id,
+      firstName: patient.first_name,
+      middleName: patient.middle_name,
+      lastName: patient.last_name,
+      dateOfBirth: patient.date_of_birth,
+      gender: patient.gender,
+      contact: patient.contact,
+      maritalStatus: patient.marital_status,
+      residence: patient.residence
+    });
+  } catch (error) {
+    console.error('Error fetching patient:', error);
+    res.status(500).json({ message: 'Failed to fetch patient' });
+  }
+};
+
+export const searchPatients = async (req: Request, res: Response) => {
+  try {
+    const { searchTerm, gender, maritalStatus } = req.query;
+
+    let query = `
+      SELECT id, clinic_id, first_name, middle_name, last_name,
+             date_of_birth, gender, contact, marital_status
+      FROM patients
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (searchTerm) {
+      query += ` AND (
+        first_name LIKE ? OR
+        middle_name LIKE ? OR
+        last_name LIKE ? OR
+        contact LIKE ? OR
+        clinic_id LIKE ?
+      )`;
+      const term = `%${searchTerm}%`;
+      params.push(term, term, term, term, term);
+    }
+
+    if (gender && gender !== 'any') {
+      query += ` AND gender = ?`;
+      params.push(gender);
+    }
+
+    if (maritalStatus && maritalStatus !== 'any') {
+      query += ` AND marital_status = ?`;
+      params.push(maritalStatus);
+    }
+
+    query += ` ORDER BY first_name ASC LIMIT 10`;
+
+    const [patients] = await pool.execute(query, params) as [RowDataPacket[], any];
+
+    res.json(patients.map(p => ({
+      id: p.id,
+      clinicId: p.clinic_id,
+      firstName: p.first_name,
+      middleName: p.middle_name,
+      lastName: p.last_name,
+      dateOfBirth: p.date_of_birth,
+      gender: p.gender,
+      contact: p.contact,
+      maritalStatus: p.marital_status
+    })));
+  } catch (error) {
+    console.error('Error searching patients:', error);
+    res.status(500).json({ message: 'Failed to search patients' });
+  }
 }; 

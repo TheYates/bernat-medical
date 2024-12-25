@@ -7,6 +7,7 @@ import { SettingsPage } from '@/pages/Settings';
 import { ReportsPage } from '@/pages/Reports';
 import { NotFound } from '@/pages/NotFound';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { RegisterPatient } from '@/pages/RegisterPatient';
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard/reports',
     element: <ProtectedRoute><ReportsPage /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/register-patient',
+    element: <ProtectedRoute><RegisterPatient /></ProtectedRoute>,
   },
   {
     path: '*',

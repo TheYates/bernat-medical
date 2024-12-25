@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FileText,
   Package,
+  UserPlus,
 } from 'lucide-react';
 import { AccessType } from '@/types/user';
 import { Icons } from '@/components/icons';
@@ -75,6 +76,13 @@ const links: SidebarLink[] = [
     href: '/dashboard/reports',
     roles: ['admin'],
     requiredAccess: 'settings',
+  },
+  {
+    icon: UserPlus,
+    label: 'Register Patient',
+    href: '/dashboard/register-patient',
+    roles: ['admin', 'user'],
+    requiredAccess: 'records',
   },
 ];
 

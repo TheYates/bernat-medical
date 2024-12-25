@@ -9,6 +9,7 @@ import clinicRoutes from './routes/clinic.routes';
 import inventoryRoutes from './routes/inventory.routes';
 import auditRoutes from './routes/audit.routes';
 import notificationRoutes from './routes/notification.routes';
+import patientRoutes from './routes/patient.routes';
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -33,6 +34,7 @@ app.use('/api/clinic', clinicRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/patients', patientRoutes);
 
 // Error handling
 app.use(errorHandler);

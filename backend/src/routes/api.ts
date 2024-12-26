@@ -12,6 +12,7 @@ import {
   getLowStock,
   getExpiring
 } from '../controllers/inventory.controller';
+import vitalRouter from './vital.routes';
 
 const router = Router();
 
@@ -29,5 +30,7 @@ router.get('/inventory/expiring', authenticate, getExpiring);
 // Notification routes
 router.get('/notifications', authenticate, getNotifications);
 router.post('/notifications/:id/read', authenticate, markAsRead);
+
+router.use('/vitals', vitalRouter);
 
 export default router; 

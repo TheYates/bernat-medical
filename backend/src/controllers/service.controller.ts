@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { AuthenticatedRequest } from '../types/auth';
 import { createAuditLog } from '../services/audit.service';
 
@@ -25,73 +25,51 @@ export const getServices = async (req: Request, res: Response) => {
 };
 
 export const createServiceRequest = async (req: AuthenticatedRequest, res: Response) => {
+  const connection = await pool.getConnection();
+  
   try {
     const { patientId, services } = req.body;
-
-    // Add debug logging
-    console.log('Creating service request:', { patientId, services });
-
-    if (!patientId || !services || !Array.isArray(services) || services.length === 0) {
-      return res.status(400).json({ 
-        message: 'Invalid request data. Patient ID and services are required.' 
-      });
-    }
-
-    // Start transaction
-    const connection = await pool.getConnection();
+    
     await connection.beginTransaction();
 
-    try {
-      // Create service request
-      const [result] = await connection.execute(
-        'INSERT INTO service_requests (patient_id) VALUES (?)',
-        [patientId]
-      ) as [any, any];
+    const [result] = await connection.execute(
+      'INSERT INTO service_requests (patient_id) VALUES (?)',
+      [patientId]
+    ) as [ResultSetHeader, any];
 
-      const requestId = result.insertId;
+    for (const serviceId of services) {
+      const [serviceData] = await connection.execute(
+        'SELECT price FROM services WHERE id = ?',
+        [serviceId]
+      ) as [RowDataPacket[], any];
 
-      // Add service items
-      for (const serviceId of services) {
-        const [serviceData] = await connection.execute(
-          'SELECT price FROM services WHERE id = ?',
-          [serviceId]
-        ) as [RowDataPacket[], any];
-
-        if (!serviceData[0]) {
-          throw new Error(`Service with ID ${serviceId} not found`);
-        }
-
-        await connection.execute(
-          'INSERT INTO service_request_items (request_id, service_id, price_at_time) VALUES (?, ?, ?)',
-          [requestId, serviceId, serviceData[0].price]
-        );
-      }
-
-      await connection.commit();
-
-      // Create audit log
-      await createAuditLog({
-        userId: req.user?.id || 0,
-        actionType: 'create',
-        entityType: 'service_request',
-        entityId: requestId.toString(),
-        details: { patientId, services },
-        ipAddress: req.ip || 'unknown'
-      });
-
-      res.status(201).json({ 
-        message: 'Service request created successfully',
-        requestId
-      });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+      await connection.execute(
+        'INSERT INTO service_request_items (request_id, service_id, price_at_time) VALUES (?, ?, ?)',
+        [result.insertId, serviceId, serviceData[0].price]
+      );
     }
+
+    await createAuditLog({
+      userId: req.user?.id || 0,
+      actionType: 'create',
+      entityType: 'service_request',
+      entityId: result.insertId.toString(),
+      details: { patientId, services },
+      ipAddress: req.ip
+    });
+
+    await connection.commit();
+    res.status(201).json({ 
+      message: 'Service request created',
+      requestId: result.insertId 
+    });
+
   } catch (error) {
+    await connection.rollback();
     console.error('Error creating service request:', error);
-    res.status(500).json({ message: 'Failed to create service request' });
+    res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 };
 
@@ -143,10 +121,22 @@ export const getServiceRequestHistory = async (req: Request, res: Response) => {
 export const cancelServiceRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const requestId = req.params.requestId;
+    const status = req.body.status || 'Cancelled';
     
+    // First check if the request exists
+    const [request] = await pool.execute(
+      'SELECT id FROM service_requests WHERE id = ?',
+      [requestId]
+    ) as [RowDataPacket[], any];
+
+    if (!request.length) {
+      return res.status(404).json({ message: 'Service request not found' });
+    }
+
+    // Update the status
     await pool.execute(
       'UPDATE service_requests SET status = ? WHERE id = ?',
-      ['Cancelled', requestId]
+      [status, requestId]
     );
 
     // Create audit log
@@ -155,13 +145,75 @@ export const cancelServiceRequest = async (req: AuthenticatedRequest, res: Respo
       actionType: 'update',
       entityType: 'service_request',
       entityId: requestId,
-      details: { status: 'Cancelled' },
+      details: { status },
       ipAddress: req.ip || 'unknown'
     });
 
-    res.json({ message: 'Service request cancelled successfully' });
+    res.json({ 
+      message: 'Service request status updated successfully',
+      status: status
+    });
   } catch (error) {
-    console.error('Error cancelling service request:', error);
-    res.status(500).json({ message: 'Failed to cancel service request' });
+    console.error('Error updating service request:', error);
+    res.status(500).json({ 
+      message: 'Failed to update service request',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+export const getWaitingList = async (req: Request, res: Response) => {
+  try {
+    // Simpler query to debug
+    const [waitingList] = await pool.execute(`
+      SELECT 
+        sr.id,
+        sr.status,
+        sr.created_at as createdAt,
+        p.clinic_id as clinicId,
+        p.first_name as firstName,
+        p.middle_name as middleName,
+        p.last_name as lastName,
+        p.date_of_birth as dateOfBirth,
+        p.gender,
+        s.id as serviceId,
+        s.name as serviceName,
+        s.category as serviceCategory
+      FROM service_requests sr
+      JOIN patients p ON sr.patient_id = p.id
+      JOIN service_request_items sri ON sr.id = sri.request_id
+      JOIN services s ON sri.service_id = s.id
+      WHERE sr.status IN ('Pending', 'In Progress')
+      ORDER BY sr.created_at ASC
+    `) as [RowDataPacket[], any];
+
+    console.log('Raw waiting list:', waitingList); // Debug raw results
+
+    // Keep the data transformation to match the interface
+    const formattedList = waitingList.map(item => ({
+      id: item.id,
+      createdAt: item.createdAt.toISOString(),
+      status: item.status,
+      patient: {
+        clinicId: item.clinicId,
+        firstName: item.firstName,
+        middleName: item.middleName,
+        lastName: item.lastName,
+        dateOfBirth: item.dateOfBirth.toISOString(),
+        gender: item.gender
+      },
+      service: {
+        id: item.serviceId,
+        name: item.serviceName,
+        category: item.serviceCategory
+      }
+    }));
+
+    // console.log('Formatted waiting list:', formattedList); // Debug formatted results
+
+    res.json(formattedList);
+  } catch (error) {
+    console.error('Error fetching waiting list:', error);
+    res.status(500).json({ error: 'Failed to fetch waiting list' });
   }
 }; 

@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { RegisterPatient } from '@/pages/RegisterPatient';
 import { ServiceRequest } from '@/pages/ServiceRequest';
 import { VitalSigns } from '@/pages/VitalSigns';
+import { ConsultationPage } from '@/pages/Consultation';
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +52,10 @@ export const router = createBrowserRouter([
   {
     path: '/dashboard/vital-signs',
     element: <ProtectedRoute><VitalSigns /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/consultation',
+    element: <ProtectedRoute><ConsultationPage /></ProtectedRoute>,
   },
   {
     path: '*',

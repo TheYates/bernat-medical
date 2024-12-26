@@ -4,17 +4,11 @@ import apiRouter from './routes/api';
 
 const app = express();
 
-// Middleware
+// Enable CORS for frontend
 app.use(cors());
 app.use(express.json());
 
-// Debug middleware to log requests
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  next();
-});
-
-// Routes
+// API routes
 app.use('/api', apiRouter);
 
 // Test route

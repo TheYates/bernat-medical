@@ -22,3 +22,23 @@ export function formatDate(date: string | Date | null | undefined, formatStr: st
     return '-';
   }
 }
+
+export function calculateAge(dateOfBirth: string): number {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
+
+export function calculateBMI(weight: string | number, height: string | number): number {
+  const w = Number(weight);
+  const h = Number(height) / 100; // Convert cm to meters
+  if (!w || !h) return 0;
+  return Number((w / (h * h)).toFixed(1));
+}

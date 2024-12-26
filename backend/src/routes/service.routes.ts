@@ -1,8 +1,10 @@
 import express from 'express';
-import { getServices, createServiceRequest, getServiceRequestHistory, cancelServiceRequest } from '../controllers/service.controller';
+import { getServices, createServiceRequest, getServiceRequestHistory, cancelServiceRequest, getWaitingList } from '../controllers/service.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
+
+router.get('/requests/waiting-list', authenticate, getWaitingList);
 
 router.get('/', authenticate, getServices);
 router.post('/request', authenticate, createServiceRequest);

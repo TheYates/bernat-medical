@@ -6,7 +6,6 @@ import {
   Users,
   Calendar,
   Settings,
-  User,
   ClipboardList,
   Home,
   ChevronLeft,
@@ -59,8 +58,8 @@ const links: SidebarLink[] = [
   },
   {
     icon: ClipboardList,
-    label: 'Medical Records',
-    href: '/dashboard/records',
+    label: 'Consultation',
+    href: '/dashboard/consultation',
     roles: ['admin', 'user'],
     requiredAccess: 'records',
   },
@@ -106,13 +105,13 @@ export function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  console.log('Current user:', user);
+  // console.log('Current user:', user);
 
   const filteredLinks = links.filter((link) => {
     const hasRole = link.roles.includes(user?.role || '');
     const hasAccess = !link.requiredAccess || user?.access?.includes(link.requiredAccess);
     
-    console.log(`Link ${link.label}:`, { hasRole, hasAccess });
+    // console.log(`Link ${link.label}:`, { hasRole, hasAccess });
     
     return hasRole && hasAccess;
   });

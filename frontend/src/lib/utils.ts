@@ -42,3 +42,10 @@ export function calculateBMI(weight: string | number, height: string | number): 
   if (!w || !h) return 0;
   return Number((w / (h * h)).toFixed(1));
 }
+
+export const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP'
+  }).format(amount);
+};

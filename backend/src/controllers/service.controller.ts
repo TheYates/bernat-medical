@@ -13,10 +13,15 @@ interface ServiceItem {
 
 export const getServices = async (req: Request, res: Response) => {
   try {
-    const [services] = await pool.execute(
-      'SELECT * FROM services ORDER BY category, name'
-    ) as [RowDataPacket[], any];
-
+    const category = req.query.category as string;
+    
+    const query = category 
+      ? 'SELECT * FROM services WHERE LOWER(category) = LOWER(?)'
+      : 'SELECT * FROM services';
+    
+    const params = category ? [category] : [];
+    const [services] = await pool.execute(query, params);
+    
     res.json(services);
   } catch (error) {
     console.error('Error fetching services:', error);

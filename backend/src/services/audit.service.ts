@@ -37,7 +37,14 @@ export const createAuditLog = async (data: {
       `INSERT INTO audit_log (
         user_id, action_type, entity_type, entity_id, details, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [actualUserId, data.actionType, data.entityType, data.entityId || 0, JSON.stringify(data.details || {}), data.ipAddress]
+      [
+        actualUserId,
+        data.actionType,
+        data.entityType,
+        data.entityId,
+        JSON.stringify(data.details || {}),
+        null
+      ]
     );
   } catch (error) {
     console.error('Error creating audit log:', error);

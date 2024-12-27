@@ -19,7 +19,7 @@ export const consultationService = {
     return response.data;
   },
 
-  create: async (patientId: string, data: any) => {
+  create: async (patientId: number, data: any) => {
     const response = await api.post(`/consultations/${patientId}`, data);
     return response.data;
   }

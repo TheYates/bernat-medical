@@ -14,6 +14,9 @@ import {
   Package,
   UserPlus,
   Activity,
+  FlaskConical,
+  LayoutDashboard,
+  Stethoscope,
 } from 'lucide-react';
 import { AccessType } from '@/types/user';
 import { Icons } from '@/components/icons';
@@ -37,8 +40,8 @@ const links: SidebarLink[] = [
   },
   {
     icon: Users,
-    label: 'Users',
-    href: '/dashboard/users',
+    label: 'Laboratory',
+    href: '/laboratory',
     roles: ['admin'],
     requiredAccess: 'settings',
   },

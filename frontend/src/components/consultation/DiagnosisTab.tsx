@@ -1,73 +1,54 @@
-import { UseFormReturn } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { FormField, FormItem, FormLabel } from '@/components/ui/form';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator';
+import { api } from '@/lib/api';
+import { ConsultationHistory } from './components/consultation-history';
 
 interface DiagnosisTabProps {
-  form: UseFormReturn<any>;
-  patient?: any;
-  history?: any[];
-  isLoadingHistory?: boolean;
+  form: any;
+  patient: any;
 }
 
-export function DiagnosisTab({
-  form,
-  patient,
-  history = [],
-  isLoadingHistory = false
-}: DiagnosisTabProps) {
+export function DiagnosisTab({ form, patient }: DiagnosisTabProps) {
+  const [history, setHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (patient?.id) {
+      setIsLoading(true);
+      api.get(`/consultations/${patient.id}/diagnosis/history`)
+        .then(response => setHistory(response.data))
+        .catch(error => console.error('Error fetching diagnosis history:', error))
+        .finally(() => setIsLoading(false));
+    }
+  }, [patient?.id]);
+
   return (
     <div className="space-y-4">
-      {/* Diagnosis Input */}
       <FormField
         control={form.control}
         name="diagnosis"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Diagnosis</FormLabel>
-            <Textarea
-              {...field}
-              placeholder="Enter diagnosis..."
-              className="min-h-[150px] resize-none"
-            />
+            <FormControl>
+              <Textarea
+                placeholder="Enter diagnosis"
+                className="min-h-[100px]"
+                {...field}
+              />
+            </FormControl>
           </FormItem>
         )}
       />
-
-      {/* Diagnosis History */}
-      <div>
-        <h3 className="text-sm font-medium mb-2">Previous Diagnoses</h3>
-        {isLoadingHistory ? (
-          <p className="text-sm text-muted-foreground">Loading history...</p>
-        ) : history.length > 0 ? (
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-4">
-              {history.map((record) => (
-                <Card key={record.id} className="p-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm font-medium">
-                      {format(new Date(record.createdAt), 'MMM d, yyyy')}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(record.createdAt), 'h:mm a')}
-                    </span>
-                  </div>
-                  <Separator className="my-2" />
-                  <p className="text-sm whitespace-pre-wrap">{record.diagnosis}</p>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    By: {record.recordedBy.firstName} {record.recordedBy.lastName}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        ) : (
-          <p className="text-sm text-muted-foreground">No previous diagnoses found</p>
-        )}
-      </div>
+      
+      {patient && (
+        <ConsultationHistory
+          title="Diagnosis"
+          items={history}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }

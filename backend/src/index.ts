@@ -3,15 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/error';
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import clinicRoutes from './routes/clinic.routes';
-import inventoryRoutes from './routes/inventory.routes';
-import auditRoutes from './routes/audit.routes';
-import notificationRoutes from './routes/notification.routes';
-import patientRoutes from './routes/patient.routes';
-import serviceRoutes from './routes/service.routes';
-import vitalRoutes from './routes/vital.routes';
+import apiRouter from './routes/api';
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -29,16 +21,8 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/clinic', clinicRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/audit', auditRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/services', serviceRoutes);
-app.use('/api/vitals', vitalRoutes);
+// Mount all routes under /api
+app.use('/api', apiRouter);
 
 // Error handling
 app.use(errorHandler);

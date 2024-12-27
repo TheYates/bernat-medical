@@ -2,18 +2,22 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { AuthenticatedRequest } from '../types/auth';
 
-export const authenticate = (
+export const authenticate = async (
   req: AuthenticatedRequest,
   res: Response, 
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    console.log('Auth header received:', authHeader?.substring(0, 20) + '...');
     
-    if (!token) {
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.log('No Bearer token found');
       return res.status(401).json({ message: 'No token provided' });
     }
 
+    const token = authHeader.split(' ')[1];
+    
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
       req.user = decoded as { id: number; role: string };
@@ -24,7 +28,7 @@ export const authenticate = (
     }
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(401).json({ message: 'Authentication failed' });
   }
 };
 

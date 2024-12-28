@@ -192,7 +192,7 @@ export const getWaitingList = async (req: Request, res: Response) => {
       ORDER BY sr.created_at ASC
     `) as [RowDataPacket[], any];
 
-    console.log('Raw waiting list:', waitingList); // Debug raw results
+    // console.log('Raw waiting list:', waitingList); // Debug raw results
 
     // Keep the data transformation to match the interface
     const formattedList = waitingList.map(item => ({

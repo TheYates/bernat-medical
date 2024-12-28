@@ -25,6 +25,8 @@ import notificationRoutes from './notification.routes';
 import patientRoutes from './patient.routes';
 import serviceRoutes from './service.routes';
 import prescriptionRoutes from './prescription.routes';
+import labRequestRoutes from './lab-request.routes';
+import xrayRequestRoutes from './xray-request.routes';
 
 const router = express.Router();
 
@@ -46,7 +48,7 @@ router.post('/notifications/:id/read', authenticate, markAsRead);
 
 // Mount sub-routers
 router.use('/vitals', vitalRouter);
-router.use('/lab-requests', labRequestRouter);
+router.use('/lab-requests', labRequestRoutes);
 router.use('/drugs', drugRoutes);
 router.use('/consultations', consultationRoutes);
 router.use('/auth', authRoutes);
@@ -58,5 +60,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/patients', patientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/prescriptions', prescriptionRoutes);
+router.use('/xray-requests', xrayRequestRoutes);
 
 export default router; 

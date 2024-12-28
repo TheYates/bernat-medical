@@ -9,10 +9,10 @@ export const authenticate = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('Auth header received:', authHeader?.substring(0, 20) + '...');
+    // console.log('Auth header received:', authHeader?.substring(0, 20) + '...');
     
     if (!authHeader?.startsWith('Bearer ')) {
-      console.log('No Bearer token found');
+      // console.log('No Bearer token found');
       return res.status(401).json({ message: 'No token provided' });
     }
 
@@ -23,7 +23,7 @@ export const authenticate = async (
       req.user = decoded as { id: number; role: string };
       next();
     } catch (jwtError) {
-      console.error('JWT Verification failed:', jwtError);
+      // console.error('JWT Verification failed:', jwtError);
       return res.status(401).json({ message: 'Invalid token' });
     }
   } catch (error) {
@@ -48,7 +48,7 @@ export const isAdmin = async (
 
     next();
   } catch (error) {
-    console.error('Admin check error:', error);
+    // console.error('Admin check error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 }; 

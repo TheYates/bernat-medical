@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/error';
 import apiRoutes from './routes/api';
 import prescriptionRoutes from './routes/prescription.routes';
 import path from 'path';
+import fs from 'fs';
 
 const app = express();
 
@@ -17,12 +18,32 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
-// API Routes
+// Set up uploads directory with absolute path
+const uploadsDir = path.resolve(__dirname, '../uploads');
+console.log('Uploads directory (absolute):', uploadsDir);
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve static files with more permissive options
+app.use('/api/uploads', (req, res, next) => {
+  console.log('File request:', {
+    url: req.url,
+    path: path.join(uploadsDir, req.url),
+    exists: fs.existsSync(path.join(uploadsDir, req.url))
+  });
+  next();
+}, express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+  }
+}));
+
+// Then your API routes
 app.use('/api', apiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
-
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Error handling
 app.use(errorHandler);

@@ -3,6 +3,7 @@ import { pool } from '../db';
 import { RowDataPacket } from 'mysql2';
 import { AuthenticatedRequest } from '../types/auth';
 import { createAuditLog } from '../services/audit.service';
+import path from 'path';
 
 export const getWaitingList = async (req: Request, res: Response) => {
   try {
@@ -72,8 +73,8 @@ export const getPatientHistory = async (req: Request, res: Response) => {
         s.name as 'service.name',
         s.category as 'service.category',
         s.price as 'service.price',
-        u.first_name as 'requestedBy.firstName',
-        u.last_name as 'requestedBy.lastName'
+        u.username as 'requestedBy.username',
+        u.full_name as 'requestedBy.fullName'
       FROM lab_requests lr
       JOIN services s ON lr.service_id = s.id
       JOIN users u ON lr.requested_by = u.id
@@ -95,8 +96,8 @@ export const getPatientHistory = async (req: Request, res: Response) => {
         price: row['service.price'],
       },
       requestedBy: {
-        firstName: row['requestedBy.firstName'],
-        lastName: row['requestedBy.lastName'],
+        username: row['requestedBy.username'],
+        fullName: row['requestedBy.fullName'],
       }
     }));
 
@@ -111,7 +112,13 @@ export const updateResult = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const { requestId } = req.params;
     const { result } = req.body;
-    const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const fileUrl = req.file ? `/api/uploads/${req.file.filename}` : null;
+
+    console.log('File details:', {
+      file: req.file,
+      fileUrl,
+      fullPath: path.join(__dirname, '../uploads', req.file?.filename || '')
+    });
 
     await pool.execute(
       `UPDATE lab_requests 
@@ -198,6 +205,108 @@ export const updateStatus = async (req: AuthenticatedRequest, res: Response) => 
   } catch (error) {
     console.error('Error updating status:', error);
     res.status(500).json({ message: 'Failed to update status' });
+  }
+};
+
+export const createRequest = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { patientId, serviceId } = req.body;
+    
+    console.log('Received request body:', req.body);
+
+    // Add validation
+    if (!patientId || !serviceId) {
+      return res.status(400).json({ 
+        message: 'Patient ID and Service ID are required',
+        received: req.body,
+        missing: {
+          patientId: !patientId,
+          serviceId: !serviceId
+        }
+      });
+    }
+
+    // Validate that patient exists
+    const [patients] = await pool.execute(
+      'SELECT id FROM patients WHERE id = ?',
+      [patientId]
+    ) as [RowDataPacket[], any];
+
+    if (!patients.length) {
+      return res.status(400).json({
+        message: 'Invalid patient ID',
+        patientId
+      });
+    }
+
+    // Validate that service exists
+    const [services] = await pool.execute(
+      'SELECT id FROM services WHERE id = ?',
+      [serviceId]
+    ) as [RowDataPacket[], any];
+
+    if (!services.length) {
+      return res.status(400).json({
+        message: 'Invalid service ID',
+        serviceId
+      });
+    }
+
+    // Add user check
+    if (!req.user?.id) {
+      console.log('No user ID found:', req.user); // Debug log
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    console.log('Creating lab request with:', { // Debug log
+      patientId,
+      serviceId,
+      userId: req.user.id
+    });
+
+    const [result] = await pool.execute(
+      `INSERT INTO lab_requests (
+        patient_id,
+        service_id,
+        status,
+        requested_by,
+        created_at
+      ) VALUES (?, ?, 'Pending', ?, NOW())`,
+      [patientId, serviceId, req.user.id]
+    );
+
+    await createAuditLog({
+      userId: req.user.id,
+      actionType: 'create',
+      entityType: 'lab_request',
+      entityId: (result as any).insertId,
+      details: { patientId, serviceId },
+      ipAddress: req.ip || 'unknown'
+    });
+
+    res.status(201).json({ 
+      message: 'Lab request created successfully',
+      id: (result as any).insertId
+    });
+  } catch (error) {
+    console.error('Error creating lab request:', {
+      error,
+      body: req.body,
+      user: req.user
+    });
+    
+    // Type check the error before accessing message property
+    if (error instanceof Error) {
+      res.status(500).json({ 
+        message: 'Failed to create lab request',
+        error: error.message
+      });
+    } else {
+      res.status(500).json({ 
+        message: 'Failed to create lab request',
+        error: 'Unknown error occurred'
+      });
+    }
   }
 };
 

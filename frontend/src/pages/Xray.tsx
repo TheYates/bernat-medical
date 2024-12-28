@@ -18,7 +18,6 @@ import { calculateAge, formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { labWaitingListService, type LabWaitingListItem } from '@/services/lab-waiting-list.service';
 import { Investigation } from '@/services/investigations.service';
 
 interface Patient {
@@ -31,13 +30,32 @@ interface Patient {
   clinicId: string;
 }
 
+interface XrayWaitingListItem {
+  id: string;
+  patient: {
+    clinicId: string;
+    firstName: string;
+    middleName: string;
+    lastName: string;
+    dateOfBirth: string;
+    gender: string;
+  };
+  service: {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+  };
+  createdAt: string;
+}
+
 const formSchema = z.object({
   clinicId: z.string().min(1, 'Clinic ID is required'),
 });
 
-export function LaboratoryPage() {
+export function XrayPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [waitingList, setWaitingList] = useState<LabWaitingListItem[]>([]);
+  const [waitingList, setWaitingList] = useState<XrayWaitingListItem[]>([]);
   const [showWaitingList, setShowWaitingList] = useState(false);
   const [isLoadingWaitingList, setIsLoadingWaitingList] = useState(false);
   const [patientInvestigations, setPatientInvestigations] = useState<Investigation[]>([]);
@@ -59,6 +77,18 @@ export function LaboratoryPage() {
     },
   });
 
+  const fetchPatientInvestigations = async (patientId: string) => {
+    setIsLoadingPatientData(true);
+    try {
+      const response = await api.get(`/xray-requests/${patientId}/history`);
+      setPatientInvestigations(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch patient investigations");
+    } finally {
+      setIsLoadingPatientData(false);
+    }
+  };
+
   const onClinicIdChange = async (value: string) => {
     if (!value || value.length < 3) {
       setPatient(null);
@@ -71,18 +101,6 @@ export function LaboratoryPage() {
       fetchPatientInvestigations(response.data.id);
     } catch (error) {
       toast.error("Failed to fetch patient details");
-    }
-  };
-
-  const fetchPatientInvestigations = async (patientId: string) => {
-    setIsLoadingPatientData(true);
-    try {
-      const response = await api.get(`/lab-requests/${patientId}/history`);
-      setPatientInvestigations(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch patient investigations");
-    } finally {
-      setIsLoadingPatientData(false);
     }
   };
 
@@ -105,7 +123,7 @@ export function LaboratoryPage() {
         formData.append('file', resultFile);
       }
 
-      await api.post(`/lab-requests/${selectedInvestigation.id}/result`, formData);
+      await api.post(`/xray-requests/${selectedInvestigation.id}/result`, formData);
       
       toast.success("Result updated successfully");
       setShowResultDialog(false);
@@ -122,7 +140,7 @@ export function LaboratoryPage() {
     if (!investigationToDelete || !patient) return;
 
     try {
-      await api.delete(`/lab-requests/${investigationToDelete.id}`, {
+      await api.delete(`/xray-requests/${investigationToDelete.id}`, {
         data: { reason: deleteReason }
       });
       
@@ -139,8 +157,8 @@ export function LaboratoryPage() {
   const fetchWaitingList = async () => {
     setIsLoadingWaitingList(true);
     try {
-      const data = await labWaitingListService.getAll();
-      setWaitingList(data);
+      const response = await api.get('/xray-requests/waiting-list');
+      setWaitingList(response.data);
     } catch (error) {
       toast.error("Failed to fetch waiting list");
     } finally {
@@ -169,9 +187,9 @@ export function LaboratoryPage() {
     <DashboardLayout>
       <div className="max-w-[900px] mx-auto">
         <div className="mb-2">
-          <h1 className="text-lg font-bold tracking-tight">Laboratory Tests</h1>
+          <h1 className="text-lg font-bold tracking-tight">X-ray & Scan Results</h1>
           <p className="text-sm text-muted-foreground">
-            Process laboratory test requests and manage results
+            Process radiology requests and manage results
           </p>
         </div>
 
@@ -239,22 +257,6 @@ export function LaboratoryPage() {
                     <label className="text-sm font-medium text-foreground/70">Gender</label>
                     <p className="text-lg font-medium">{patient?.gender || "-"}</p>
                   </div>
-
-                  <div className="col-span-3 grid grid-cols-2 gap-4 mt-4">
-                    <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">Date</label>
-                      <p className="text-lg font-medium">
-                        {format(new Date(), "EEEE, MMMM d, yyyy")}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">Time</label>
-                      <p className="text-lg font-medium">
-                        {format(new Date(), "hh:mm a")}
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Investigation Results Section Header */}
@@ -264,7 +266,7 @@ export function LaboratoryPage() {
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-background px-2 text-muted-foreground">
-                      Investigation Results
+                      X-ray & Scan Results
                     </span>
                   </div>
                 </div>
@@ -363,11 +365,10 @@ export function LaboratoryPage() {
                               {investigation.status === "Pending" && (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
                                   onClick={(e) => handleDelete(investigation, e)}
-                                  className="h-8 w-8 p-0"
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                  <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                               )}
                             </TableCell>
@@ -386,7 +387,6 @@ export function LaboratoryPage() {
                     </TableBody>
                   </Table>
                 </div>
-
               </form>
             </Form>
           </CardContent>
@@ -397,18 +397,18 @@ export function LaboratoryPage() {
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Update Test Result</DialogTitle>
+            <DialogTitle>Update X-ray/Scan Result</DialogTitle>
             <DialogDescription>
-              Enter the test result or upload a result document
+              Enter the result or upload a result document
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Test Result</Label>
+              <Label>Result</Label>
               <Textarea
                 value={result}
                 onChange={(e) => setResult(e.target.value)}
-                placeholder="Enter test result"
+                placeholder="Enter result"
                 className="min-h-[100px]"
               />
             </div>
@@ -443,7 +443,7 @@ export function LaboratoryPage() {
       <Dialog open={showResultDetails} onOpenChange={setShowResultDetails}>
         <DialogContent className="max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Investigation Result</DialogTitle>
+            <DialogTitle>X-ray/Scan Result</DialogTitle>
             <DialogDescription asChild>
               {selectedResult && (
                 <div className="space-y-4">
@@ -582,9 +582,9 @@ export function LaboratoryPage() {
       <Dialog open={showWaitingList} onOpenChange={setShowWaitingList}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Laboratory Waiting List</DialogTitle>
+            <DialogTitle>X-ray/Scan Waiting List</DialogTitle>
             <DialogDescription>
-              Patients waiting for laboratory tests
+              Patients waiting for x-ray and scan procedures
             </DialogDescription>
           </DialogHeader>
 

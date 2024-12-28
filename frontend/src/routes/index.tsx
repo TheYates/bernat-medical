@@ -11,6 +11,9 @@ import { RegisterPatient } from '@/pages/RegisterPatient';
 import { ServiceRequest } from '@/pages/ServiceRequest';
 import { VitalSigns } from '@/pages/VitalSigns';
 import { ConsultationPage } from '@/pages/Consultation';
+import { LaboratoryPage } from '@/pages/Laboratory';
+import { XrayPage } from '@/pages/Xray';
+
 
 export const router = createBrowserRouter([
   {
@@ -58,7 +61,20 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><ConsultationPage /></ProtectedRoute>,
   },
   {
+    path: '/dashboard/laboratory',
+    element: <ProtectedRoute><LaboratoryPage /></ProtectedRoute>,
+  },
+  {
+    path: '/dashboard/xray',
+    element: (
+      <ProtectedRoute>
+        <XrayPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '*',
     element: <NotFound />,
   },
+  
 ]);

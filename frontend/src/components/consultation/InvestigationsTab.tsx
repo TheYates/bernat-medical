@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Check, ChevronsUpDown, Trash2 } from 'lucide-react';
+import { Check, ChevronsUpDown, Trash2, FileText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,8 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { investigationsService, type Investigation } from '@/services/investigations.service';
 import { api } from '@/lib/api';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Service {
   id: string;
@@ -31,6 +33,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoadingInvestigations, setIsLoadingInvestigations] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+  const [selectedResult, setSelectedResult] = useState<Investigation | null>(null);
+  const [showResultDetails, setShowResultDetails] = useState(false);
+  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
 
   // Fetch services and investigations when patient changes
   useEffect(() => {
@@ -78,24 +83,26 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   };
 
   const handleInvestigationRequest = async () => {
-    if (!patient?.id || selectedServices.length === 0) return;
-
     try {
-      await investigationsService.create(
-        patient.id, 
-        selectedServices.map(s => s.id)
-      );
-      
-      // Refresh investigations list
-      const updatedInvestigations = await investigationsService.getHistory(patient.id);
-      setInvestigations(updatedInvestigations);
-      
-      // Clear selected services
+      // Add debug logging
+      console.log('Sending investigation request:', {
+        patientId: patient?.id,
+        selectedInvestigations: selectedServices.map(s => s.id)
+      });
+
+      // If you're sending multiple investigations, handle them one by one
+      for (const serviceId of selectedServices.map(s => s.id)) {
+        await investigationsService.create({
+          patientId: patient?.id,
+          serviceId
+        });
+      }
+
+      toast.success('Investigation request created');
       setSelectedServices([]);
       setOpen(false);
-      toast.success('Investigation request created successfully');
     } catch (error) {
-      console.error('Error creating investigation request:', error);
+      console.error('Investigation request error:', error.response?.data || error);
       toast.error('Failed to create investigation request');
     }
   };
@@ -113,6 +120,14 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
       console.error('Error deleting investigation:', error);
       toast.error('Failed to delete investigation');
     }
+  };
+
+  // Helper function to get correct file URL
+  const getFileUrl = (fileUrl: string) => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const url = fileUrl.startsWith('http') ? fileUrl : `${apiUrl}${fileUrl}`;
+    console.log('Constructed file URL:', url);
+    return url;
   };
 
   return (
@@ -252,7 +267,16 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                   </TableRow>
                 ) : investigations.length > 0 ? (
                   investigations.map((investigation) => (
-                    <TableRow key={investigation.id}>
+                    <TableRow 
+                      key={investigation.id}
+                      className={investigation.status === "Completed" ? "cursor-pointer hover:bg-muted/50" : ""}
+                      onClick={() => {
+                        if (investigation.status === "Completed") {
+                          setSelectedResult(investigation);
+                          setShowResultDetails(true);
+                        }
+                      }}
+                    >
                       <TableCell>
                         {format(new Date(investigation.createdAt), "dd/MM/yyyy")}
                       </TableCell>
@@ -264,9 +288,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                             <span
                               className="truncate block cursor-pointer hover:text-primary"
                               title="Click to view full result"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // TODO: Implement view result functionality
+                              onClick={() => {
+                                setSelectedResult(investigation);
+                                setShowResultDetails(true);
                               }}
                             >
                               {investigation.result.length > 50
@@ -327,6 +351,116 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
           </CardContent>
         </Card>
       </CardContent>
+
+      <Dialog open={showResultDetails} onOpenChange={setShowResultDetails}>
+        <DialogContent className="max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Investigation Details</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[80vh]">
+            {selectedResult && (
+              <div className="space-y-6">
+                {/* Header Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Investigation</label>
+                    <p className="font-medium">{selectedResult.service.name}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Category</label>
+                    <p className="font-medium">{selectedResult.service.category}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Date</label>
+                    <p className="font-medium">
+                      {format(new Date(selectedResult.createdAt), "PPpp")}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Status</label>
+                    <Badge variant={
+                      selectedResult.status === "Completed" ? "success" :
+                      selectedResult.status === "In Progress" ? "warning" :
+                      selectedResult.status === "Cancelled" ? "destructive" : 
+                      "default"
+                    }>
+                      {selectedResult.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Result Section */}
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">Result</label>
+                  <div className="bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
+                    {selectedResult.result || "No result recorded"}
+                  </div>
+                </div>
+
+                {/* Attachments Section */}
+                {selectedResult.fileUrl && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Attachments</label>
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <a
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowDocumentPreview(true);
+                        }}
+                        href="#"
+                        className="text-primary hover:underline flex items-center gap-2 cursor-pointer"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Result Document
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Performed By Section */}
+                {selectedResult.performedBy && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Performed By</label>
+                    <p className="font-medium">{selectedResult.performedBy.fullName}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
+        <DialogContent className="max-w-[90vw] h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Document Preview</DialogTitle>
+            <DialogDescription asChild>
+              {selectedResult && (
+                <div className="flex items-center justify-between">
+                  <span>{selectedResult.service.name} - {format(new Date(selectedResult.createdAt), "PPP")}</span>
+                  <a
+                    href={selectedResult?.fileUrl ? getFileUrl(selectedResult.fileUrl) : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-sm flex items-center gap-2"
+                  >
+                    Open in new tab
+                  </a>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedResult?.fileUrl && (
+            <div className="relative w-full h-full">
+              <iframe
+                src={selectedResult?.fileUrl ? getFileUrl(selectedResult.fileUrl) : ''}
+                className="w-full h-[calc(90vh-80px)]"
+                title="Document Preview"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 } 

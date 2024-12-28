@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { 
   getWaitingList,
   getPatientHistory,
+  createRequest,
   updateResult,
   deleteRequest,
   updateStatus
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.get('/waiting-list', authenticate, getWaitingList);
 router.get('/:patientId/history', authenticate, getPatientHistory);
+router.post('/', authenticate, createRequest);
 router.post('/:requestId/result', authenticate, upload.single('file'), updateResult);
 router.delete('/:requestId', authenticate, deleteRequest);
 router.patch('/:requestId/status', authenticate, updateStatus);

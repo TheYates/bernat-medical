@@ -39,11 +39,11 @@ const links: SidebarLink[] = [
     requiredAccess: undefined,
   },
   {
-    icon: Users,
+    icon: FlaskConical,
     label: 'Laboratory',
-    href: '/laboratory',
-    roles: ['admin'],
-    requiredAccess: 'settings',
+    href: '/dashboard/laboratory',
+    roles: ['admin', 'user'],
+    requiredAccess: 'lab',
   },
   {
     icon: Package,
@@ -54,10 +54,10 @@ const links: SidebarLink[] = [
   },
   {
     icon: Calendar,
-    label: 'Appointments',
-    href: '/dashboard/appointments',
+    label: 'X-ray/Scan',
+    href: '/dashboard/xray',
     roles: ['admin', 'user'],
-    requiredAccess: 'appointments',
+    requiredAccess: 'xray',
   },
   {
     icon: ClipboardList,
@@ -112,9 +112,8 @@ export function Sidebar() {
 
   const filteredLinks = links.filter((link) => {
     const hasRole = link.roles.includes(user?.role || '');
-    const hasAccess = !link.requiredAccess || user?.access?.includes(link.requiredAccess);
-    
-    // console.log(`Link ${link.label}:`, { hasRole, hasAccess });
+    // Admin should have access to everything
+    const hasAccess = user?.role === 'admin' || !link.requiredAccess || user?.access?.includes(link.requiredAccess);
     
     return hasRole && hasAccess;
   });

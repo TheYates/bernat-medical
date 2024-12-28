@@ -1,5 +1,11 @@
 export type UserRole = 'admin' | 'user';
-export type AccessType = 'appointments' | 'records' | 'settings';
+export type AccessType = 
+  | 'settings'
+  | 'appointments'
+  | 'records'
+  | 'lab'
+  | 'xray'
+  | 'inventory';
 
 export interface User {
   id: number;

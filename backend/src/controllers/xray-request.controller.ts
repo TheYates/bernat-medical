@@ -24,7 +24,8 @@ export const getXrayRequestHistory = async (req: AuthenticatedRequest, res: Resp
           'fullName', p.full_name
         ) as performedBy
       FROM service_requests sr
-      JOIN services s ON sr.service_id = s.id
+      JOIN service_request_items sri ON sr.id = sri.request_id
+      JOIN services s ON sri.service_id = s.id
       JOIN users u ON sr.requested_by = u.id
       LEFT JOIN users p ON sr.performed_by = p.id
       WHERE sr.patient_id = ? AND s.category = 'radiology'

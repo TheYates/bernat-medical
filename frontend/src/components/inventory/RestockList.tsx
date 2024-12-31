@@ -80,7 +80,11 @@ interface Transaction {
   createdBy: string;
 }
 
-export function RestockList() {
+interface RestockListProps {
+  refetchKey?: number;
+}
+
+export function RestockList({ refetchKey }: RestockListProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<number>();

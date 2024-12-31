@@ -6,17 +6,38 @@ import { format } from "date-fns";
 import { Users2, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Patient } from "@/types/patient";
+import { HistoryDrawer } from "@/components/shared/history-drawer";
 
 // Form schema
 const formSchema = z.object({
@@ -73,8 +94,11 @@ export function VitalSigns() {
   const [showWaitingList, setShowWaitingList] = useState(false);
   const [waitingList, setWaitingList] = useState<WaitingListItem[]>([]);
   const [isLoadingWaitingList, setIsLoadingWaitingList] = useState(false);
-  const [vitalSignsHistory, setVitalSignsHistory] = useState<VitalSignsRecord[]>([]);
+  const [vitalSignsHistory, setVitalSignsHistory] = useState<
+    VitalSignsRecord[]
+  >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
@@ -102,15 +126,21 @@ export function VitalSigns() {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     return age;
   };
 
-  const calculateBMI = (weight: string | undefined, height: string | undefined) => {
+  const calculateBMI = (
+    weight: string | undefined,
+    height: string | undefined
+  ) => {
     if (!weight || !height) return "";
     const w = parseFloat(weight);
     const h = parseFloat(height) / 100; // convert cm to m
@@ -133,7 +163,7 @@ export function VitalSigns() {
     if (!celsius) return;
     const c = parseFloat(celsius);
     if (!isNaN(c)) {
-      const f = (c * 9/5 + 32).toFixed(1);
+      const f = ((c * 9) / 5 + 32).toFixed(1);
       form.setValue("temperatureF", f);
     }
   };
@@ -142,7 +172,7 @@ export function VitalSigns() {
     if (!fahrenheit) return;
     const f = parseFloat(fahrenheit);
     if (!isNaN(f)) {
-      const c = ((f - 32) * 5/9).toFixed(1);
+      const c = (((f - 32) * 5) / 9).toFixed(1);
       form.setValue("temperatureC", c);
     }
   };
@@ -159,23 +189,25 @@ export function VitalSigns() {
       // First get the patient details
       const patientResponse = await api.get(`/patients/${value}`);
       setPatient(patientResponse.data);
-      
+
       // Only fetch vital signs history if we have a patient
       if (patientResponse.data.id) {
         try {
-          const historyResponse = await api.get(`/vitals/${patientResponse.data.id}`);
+          const historyResponse = await api.get(
+            `/vitals/${patientResponse.data.id}`
+          );
           setVitalSignsHistory(historyResponse.data);
         } catch (historyError) {
-          console.error('Error fetching vital signs history:', historyError);
+          console.error("Error fetching vital signs history:", historyError);
           setVitalSignsHistory([]);
         }
       }
     } catch (error) {
       setPatient(null);
       setVitalSignsHistory([]);
-      console.error('Error fetching patient:', error);
+      console.error("Error fetching patient:", error);
       if (value.length >= 7) {
-        toast.error('Patient not found');
+        toast.error("Patient not found");
       }
     }
   };
@@ -184,7 +216,7 @@ export function VitalSigns() {
     if (!patient) return;
 
     try {
-      await api.post('/vitals', {
+      await api.post("/vitals", {
         patientId: patient.id,
         systolic: parseInt(data.systolic),
         diastolic: parseInt(data.diastolic),
@@ -194,13 +226,15 @@ export function VitalSigns() {
         respiratoryRate: parseInt(data.respiratoryRate),
         weight: data.weight ? parseFloat(data.weight) : null,
         height: data.height ? parseFloat(data.height) : null,
-        oxygenSaturation: data.oxygenSaturation ? parseInt(data.oxygenSaturation) : null,
+        oxygenSaturation: data.oxygenSaturation
+          ? parseInt(data.oxygenSaturation)
+          : null,
         fbs: data.fbs ? parseFloat(data.fbs) : null,
         rbs: data.rbs ? parseFloat(data.rbs) : null,
-        fhr: data.fhr ? parseInt(data.fhr) : null
+        fhr: data.fhr ? parseInt(data.fhr) : null,
       });
 
-      toast.success('Vital signs recorded successfully');
+      toast.success("Vital signs recorded successfully");
       form.reset();
       setBMI("");
 
@@ -208,8 +242,8 @@ export function VitalSigns() {
       const historyResponse = await api.get(`/vitals/${patient.id}`);
       setVitalSignsHistory(historyResponse.data);
     } catch (error) {
-      console.error('Error recording vital signs:', error);
-      toast.error('Failed to record vital signs');
+      console.error("Error recording vital signs:", error);
+      toast.error("Failed to record vital signs");
     }
   };
 
@@ -218,11 +252,11 @@ export function VitalSigns() {
     const fetchWaitingList = async () => {
       setIsLoadingWaitingList(true);
       try {
-        const response = await api.get('/vitals/waiting-list');
+        const response = await api.get("/vitals/waiting-list");
         setWaitingList(response.data);
       } catch (error) {
-        console.error('Error fetching waiting list:', error);
-        toast.error('Failed to fetch waiting list');
+        console.error("Error fetching waiting list:", error);
+        toast.error("Failed to fetch waiting list");
       } finally {
         setIsLoadingWaitingList(false);
       }
@@ -232,6 +266,44 @@ export function VitalSigns() {
       fetchWaitingList();
     }
   }, [showWaitingList]);
+
+  const vitalSignsColumns = [
+    {
+      header: "Date & Time",
+      cell: (record: VitalSignsRecord) =>
+        format(new Date(record.createdAt), "dd MMM yyyy hh:mm a"),
+    },
+    {
+      header: "Temperature",
+      cell: (record: VitalSignsRecord) =>
+        `${record.temperatureC}°C / ${record.temperatureF}°F`,
+    },
+    {
+      header: "Blood Pressure",
+      cell: (record: VitalSignsRecord) =>
+        `${record.systolic}/${record.diastolic} mmHg`,
+    },
+    {
+      header: "Pulse Rate",
+      cell: (record: VitalSignsRecord) => `${record.pulseRate} bpm`,
+    },
+    {
+      header: "SpO2",
+      cell: (record: VitalSignsRecord) => `${record.oxygenSaturation}%`,
+    },
+    {
+      header: "Weight",
+      cell: (record: VitalSignsRecord) => `${record.weight} kg`,
+    },
+    {
+      header: "Height",
+      cell: (record: VitalSignsRecord) => `${record.height} cm`,
+    },
+    {
+      header: "Recorded By",
+      cell: (record: VitalSignsRecord) => record.recordedBy.fullName,
+    },
+  ];
 
   return (
     <DashboardLayout>
@@ -248,7 +320,10 @@ export function VitalSigns() {
         <Card>
           <CardContent className="p-3">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-3"
+              >
                 {/* Patient Search Section */}
                 <div className="flex justify-between items-end">
                   <FormField
@@ -357,419 +432,463 @@ export function VitalSigns() {
                   </div>
                 </div>
 
-                <Tabs defaultValue="record" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="record">Record Vital Signs</TabsTrigger>
-                    <TabsTrigger value="history">Past Records</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="record" className="mt-6">
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="space-y-6">
-                          {/* Temperature and Blood Pressure */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Blood Pressure */}
-                            <div className="col-span-2">
-                              <label className="text-sm font-medium mb-2 block">
-                                Blood Pressure
-                              </label>
-                              <div className="flex gap-2 items-start">
-                                <FormField
-                                  control={form.control}
-                                  name="systolic"
-                                  render={({ field }) => (
-                                    <FormItem className="flex-1">
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          placeholder="mmHg (Systolic)"
-                                          className="rounded-lg"
-                                          {...field}
-                                          disabled={!patient}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <span className="text-sm text-muted-foreground mt-2">
-                                  /
-                                </span>
-                                <FormField
-                                  control={form.control}
-                                  name="diastolic"
-                                  render={({ field }) => (
-                                    <FormItem className="flex-1">
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          placeholder="mmHg (Diastolic)"
-                                          className="rounded-lg"
-                                          {...field}
-                                          disabled={!patient}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Temperature */}
-                            <div className="col-span-2">
-                              <label className="text-sm font-medium mb-2 block">
-                                Temperature
-                              </label>
-                              <div className="flex gap-2 items-start">
-                                <FormField
-                                  control={form.control}
-                                  name="temperatureC"
-                                  render={({ field }) => (
-                                    <FormItem className="flex-1">
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          step="0.1"
-                                          placeholder="°C"
-                                          className="rounded-lg"
-                                          {...field}
-                                          onBlur={(e) => {
-                                            field.onBlur();
-                                            celsiusToFahrenheit(e.target.value);
-                                          }}
-                                          disabled={!patient}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <span className="text-sm text-muted-foreground mt-2">
-                                  /
-                                </span>
-                                <FormField
-                                  control={form.control}
-                                  name="temperatureF"
-                                  render={({ field }) => (
-                                    <FormItem className="flex-1">
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          step="0.1"
-                                          placeholder="°F"
-                                          className="rounded-lg"
-                                          {...field}
-                                          onBlur={(e) => {
-                                            field.onBlur();
-                                            fahrenheitToCelsius(e.target.value);
-                                          }}
-                                          disabled={!patient}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
+                <Card>
+                  <CardContent className="p-6">
+                    {showHistory ? (
+                      <>
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-lg font-semibold">
+                              Vital Signs History
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                              Past vital signs records
+                            </p>
                           </div>
-
-                          {/* Vital signs grid */}
-                          <div className="space-y-6">
-                            {/* First row: Pulse/Resp, Weight/Height, BMI */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                              {/* Pulse Rate and Respiratory Rate */}
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  {/* Pulse Rate field */}
-                                  <FormField
-                                    control={form.control}
-                                    name="pulseRate"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>Pulse Rate</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            placeholder="bpm"
-                                            className="rounded-lg"
-                                            {...field}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  {/* Respiratory Rate field */}
-                                  <FormField
-                                    control={form.control}
-                                    name="respiratoryRate"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>Resp Rate</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            placeholder="bpm"
-                                            className="rounded-lg"
-                                            {...field}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Weight and Height side by side */}
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <FormField
-                                    control={form.control}
-                                    name="weight"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>Weight (kg)</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            placeholder="kg"
-                                            step="0.1"
-                                            className="rounded-lg"
-                                            {...field}
-                                            onChange={(e) => {
-                                              field.onChange(e);
-                                              const bmi = calculateBMI(e.target.value || undefined, form.getValues("height"));
-                                              setBMI(bmi);
-                                            }}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  <FormField
-                                    control={form.control}
-                                    name="height"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>Height (cm)</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            placeholder="cm"
-                                            className="rounded-lg"
-                                            {...field}
-                                            onChange={(e) => {
-                                              field.onChange(e);
-                                              const bmi = calculateBMI(form.getValues("weight"), e.target.value || undefined);
-                                              setBMI(bmi);
-                                            }}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* BMI Display */}
-                              <FormItem>
-                                <FormLabel>BMI</FormLabel>
-                                <div className="flex items-center gap-2">
-                                  <Input value={bmi} disabled className="bg-muted" />
-                                  {bmi && (
-                                    <span className={cn(
-                                      "text-sm px-2 py-1 rounded",
-                                      parseFloat(bmi) < 18.5 && "bg-blue-100 text-blue-700",
-                                      parseFloat(bmi) >= 18.5 && parseFloat(bmi) < 25 && "bg-green-100 text-green-700",
-                                      parseFloat(bmi) >= 25 && parseFloat(bmi) < 30 && "bg-yellow-100 text-yellow-700",
-                                      parseFloat(bmi) >= 30 && "bg-red-100 text-red-700"
-                                    )}>
-                                      {getBMIClassification(parseFloat(bmi))}
-                                    </span>
-                                  )}
-                                </div>
-                              </FormItem>
-                            </div>
-
-                            {/* Second row: SpO2, FBS/RBS, FHR */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                              {/* SpO2 */}
-                              <FormField
-                                control={form.control}
-                                name="oxygenSaturation"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>SpO2 (%)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        placeholder="%"
-                                        className="rounded-lg"
-                                        {...field}
-                                        disabled={!patient}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              {/* FBS and RBS */}
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  {/* FBS field */}
-                                  <FormField
-                                    control={form.control}
-                                    name="fbs"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>FBS (mmol/L)</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            step="0.1"
-                                            placeholder="mmol/L"
-                                            className="rounded-lg"
-                                            {...field}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  {/* RBS field */}
-                                  <FormField
-                                    control={form.control}
-                                    name="rbs"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>RBS (mmol/L)</FormLabel>
-                                        <FormControl>
-                                          <Input
-                                            type="number"
-                                            step="0.1"
-                                            placeholder="mmol/L"
-                                            className="rounded-lg"
-                                            {...field}
-                                            disabled={!patient}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* FHR */}
-                              <FormField
-                                control={form.control}
-                                name="fhr"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>FHR (bpm)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        placeholder="bpm"
-                                        className="rounded-lg"
-                                        {...field}
-                                        disabled={!patient}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-
-                            {/* Submit Button */}
-                            <div className="flex justify-end mt-6">
-                              <Button
-                                type="submit"
-                                className="rounded-lg"
-                                disabled={!patient}
-                              >
-                                Record Vital Signs
-                              </Button>
-                            </div>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setShowHistory(false)}
+                          >
+                            ← Back to Record
+                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
 
-                  <TabsContent value="history">
-                    <Card>
-                      <CardContent className="p-6">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Date & Time</TableHead>
-                              <TableHead>Temperature</TableHead>
-                              <TableHead>Blood Pressure</TableHead>
-                              <TableHead>Pulse Rate</TableHead>
-                              <TableHead>SpO2</TableHead>
-                              <TableHead>Weight</TableHead>
-                              <TableHead>Height</TableHead>
-                              <TableHead>Recorded By</TableHead>
+                              {vitalSignsColumns.map((column, index) => (
+                                <TableHead key={index}>
+                                  {column.header}
+                                </TableHead>
+                              ))}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {isLoadingHistory ? (
                               <TableRow>
-                                <TableCell colSpan={8} className="text-center">
-                                  Loading history...
+                                <TableCell
+                                  colSpan={vitalSignsColumns.length}
+                                  className="text-center h-24"
+                                >
+                                  Loading...
                                 </TableCell>
                               </TableRow>
-                            ) : vitalSignsHistory.length > 0 ? (
-                              vitalSignsHistory.map((record) => (
-                                <TableRow key={record.id}>
-                                  <TableCell>
-                                    {format(new Date(record.createdAt), "dd MMM yyyy hh:mm a")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.temperatureC}°C / {record.temperatureF}°F
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.systolic}/{record.diastolic} mmHg
-                                  </TableCell>
-                                  <TableCell>{record.pulseRate} bpm</TableCell>
-                                  <TableCell>{record.oxygenSaturation}%</TableCell>
-                                  <TableCell>{record.weight} kg</TableCell>
-                                  <TableCell>{record.height} cm</TableCell>
-                                  <TableCell>
-                                    {record.recordedBy.fullName}
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
+                            ) : vitalSignsHistory.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                                <TableCell
+                                  colSpan={vitalSignsColumns.length}
+                                  className="text-center h-24 text-muted-foreground"
+                                >
                                   No vital signs history found
                                 </TableCell>
                               </TableRow>
+                            ) : (
+                              vitalSignsHistory.map((record) => (
+                                <TableRow key={record.id}>
+                                  {vitalSignsColumns.map((column, colIndex) => (
+                                    <TableCell key={colIndex}>
+                                      {column.cell(record)}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))
                             )}
                           </TableBody>
                         </Table>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center mb-6">
+                          <div>
+                            <h2 className="text-lg font-semibold">
+                              Record Vital Signs
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                              Enter new vital signs record
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            type="button"
+                            onClick={() => setShowHistory(true)}
+                          >
+                            View History
+                            {vitalSignsHistory.length > 0 && (
+                              <Badge variant="secondary" className="ml-2">
+                                {vitalSignsHistory.length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Original vital signs form content */}
+                        <Form {...form}>
+                          <form onSubmit={form.handleSubmit(onSubmit)}>
+                            {/* Temperature and Blood Pressure */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              {/* Blood Pressure */}
+                              <div className="col-span-2">
+                                <label className="text-sm font-medium mb-2 block">
+                                  Blood Pressure
+                                </label>
+                                <div className="flex gap-2 items-start">
+                                  <FormField
+                                    control={form.control}
+                                    name="systolic"
+                                    render={({ field }) => (
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            placeholder="mmHg (Systolic)"
+                                            className="rounded-lg"
+                                            {...field}
+                                            disabled={!patient}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <span className="text-sm text-muted-foreground mt-2">
+                                    /
+                                  </span>
+                                  <FormField
+                                    control={form.control}
+                                    name="diastolic"
+                                    render={({ field }) => (
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            placeholder="mmHg (Diastolic)"
+                                            className="rounded-lg"
+                                            {...field}
+                                            disabled={!patient}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Temperature */}
+                              <div className="col-span-2">
+                                <label className="text-sm font-medium mb-2 block">
+                                  Temperature
+                                </label>
+                                <div className="flex gap-2 items-start">
+                                  <FormField
+                                    control={form.control}
+                                    name="temperatureC"
+                                    render={({ field }) => (
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            step="0.1"
+                                            placeholder="°C"
+                                            className="rounded-lg"
+                                            {...field}
+                                            onBlur={(e) => {
+                                              field.onBlur();
+                                              celsiusToFahrenheit(
+                                                e.target.value
+                                              );
+                                            }}
+                                            disabled={!patient}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <span className="text-sm text-muted-foreground mt-2">
+                                    /
+                                  </span>
+                                  <FormField
+                                    control={form.control}
+                                    name="temperatureF"
+                                    render={({ field }) => (
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            step="0.1"
+                                            placeholder="°F"
+                                            className="rounded-lg"
+                                            {...field}
+                                            onBlur={(e) => {
+                                              field.onBlur();
+                                              fahrenheitToCelsius(
+                                                e.target.value
+                                              );
+                                            }}
+                                            disabled={!patient}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Vital signs grid */}
+                            <div className="space-y-6">
+                              {/* First row: Pulse/Resp, Weight/Height, BMI */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Pulse Rate and Respiratory Rate */}
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="pulseRate"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Pulse Rate</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              placeholder="bpm"
+                                              className="rounded-lg"
+                                              {...field}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name="respiratoryRate"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Resp Rate</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              placeholder="bpm"
+                                              className="rounded-lg"
+                                              {...field}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Weight and Height */}
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="weight"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Weight (kg)</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              placeholder="kg"
+                                              step="0.1"
+                                              className="rounded-lg"
+                                              {...field}
+                                              onChange={(e) => {
+                                                field.onChange(e);
+                                                const bmi = calculateBMI(
+                                                  e.target.value || undefined,
+                                                  form.getValues("height")
+                                                );
+                                                setBMI(bmi);
+                                              }}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name="height"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Height (cm)</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              placeholder="cm"
+                                              className="rounded-lg"
+                                              {...field}
+                                              onChange={(e) => {
+                                                field.onChange(e);
+                                                const bmi = calculateBMI(
+                                                  form.getValues("weight"),
+                                                  e.target.value || undefined
+                                                );
+                                                setBMI(bmi);
+                                              }}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* BMI Display */}
+                                <FormItem>
+                                  <FormLabel>BMI</FormLabel>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={bmi}
+                                      disabled
+                                      className="bg-muted rounded-lg"
+                                    />
+                                    {bmi && (
+                                      <span
+                                        className={cn(
+                                          "text-sm px-2 py-1 rounded",
+                                          parseFloat(bmi) < 18.5 &&
+                                            "bg-blue-100 text-blue-700",
+                                          parseFloat(bmi) >= 18.5 &&
+                                            parseFloat(bmi) < 25 &&
+                                            "bg-green-100 text-green-700",
+                                          parseFloat(bmi) >= 25 &&
+                                            parseFloat(bmi) < 30 &&
+                                            "bg-yellow-100 text-yellow-700",
+                                          parseFloat(bmi) >= 30 &&
+                                            "bg-red-100 text-red-700"
+                                        )}
+                                      >
+                                        {getBMIClassification(parseFloat(bmi))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </FormItem>
+                              </div>
+
+                              {/* Second row: SpO2, FBS/RBS, FHR */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* SpO2 */}
+                                <FormField
+                                  control={form.control}
+                                  name="oxygenSaturation"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>SpO2</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          placeholder="%"
+                                          className="rounded-lg"
+                                          {...field}
+                                          disabled={!patient}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                {/* FBS and RBS */}
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="fbs"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>FBS</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              step="0.1"
+                                              placeholder="mmol/L"
+                                              className="rounded-lg"
+                                              {...field}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name="rbs"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>RBS</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              type="number"
+                                              step="0.1"
+                                              placeholder="mmol/L"
+                                              className="rounded-lg"
+                                              {...field}
+                                              disabled={!patient}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* FHR */}
+                                <FormField
+                                  control={form.control}
+                                  name="fhr"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>FHR</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          placeholder="bpm"
+                                          className="rounded-lg"
+                                          {...field}
+                                          disabled={!patient}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              {/* Submit Button */}
+                              <div className="flex justify-end mt-6">
+                                <Button
+                                  type="submit"
+                                  className="rounded-lg"
+                                  disabled={!patient}
+                                >
+                                  Record Vital Signs
+                                </Button>
+                              </div>
+                            </div>
+                          </form>
+                        </Form>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </form>
             </Form>
           </CardContent>
@@ -810,7 +929,9 @@ export function VitalSigns() {
                       {waitingList.map((request) => (
                         <TableRow key={request.id}>
                           <TableCell>
-                            {request.createdAt ? format(new Date(request.createdAt), "hh:mm a") : "-"}
+                            {request.createdAt
+                              ? format(new Date(request.createdAt), "hh:mm a")
+                              : "-"}
                           </TableCell>
                           <TableCell>
                             <div>
@@ -858,7 +979,10 @@ export function VitalSigns() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowWaitingList(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowWaitingList(false)}
+              >
                 Close
               </Button>
             </DialogFooter>
@@ -867,4 +991,4 @@ export function VitalSigns() {
       </div>
     </DashboardLayout>
   );
-} 
+}

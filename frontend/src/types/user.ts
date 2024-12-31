@@ -5,6 +5,7 @@ export type AccessType =
   | 'records'
   | 'lab'
   | 'xray'
+  | 'pharmacy'
   | 'inventory';
 
 export interface User {

@@ -17,6 +17,8 @@ import {
   FlaskConical,
   LayoutDashboard,
   Stethoscope,
+  Scan,
+  Pill,
 } from 'lucide-react';
 import { AccessType } from '@/types/user';
 import { Icons } from '@/components/icons';
@@ -53,7 +55,7 @@ const links: SidebarLink[] = [
     requiredAccess: 'settings',
   },
   {
-    icon: Calendar,
+    icon: Scan,
     label: 'X-ray/Scan',
     href: '/dashboard/xray',
     roles: ['admin', 'user'],
@@ -100,6 +102,13 @@ const links: SidebarLink[] = [
     href: '/dashboard/vital-signs',
     roles: ['admin', 'user'],
     requiredAccess: 'records',
+  },
+  {
+    icon: Pill,
+    label: 'Pharmacy',
+    href: '/dashboard/pharmacy',
+    roles: ['admin', 'user'],
+    requiredAccess: 'pharmacy',
   },
 ];
 

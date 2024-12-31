@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -22,9 +22,10 @@ interface Column {
 
 interface DrugsListProps {
   columns: Column[];
+  refetchKey?: number;
 }
 
-export function DrugsList({ columns }: DrugsListProps) {
+export function DrugsList({ columns, refetchKey }: DrugsListProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { data: drugs, isLoading, refetch } = useQuery({
     queryKey: ['drugs'],
@@ -33,6 +34,10 @@ export function DrugsList({ columns }: DrugsListProps) {
       return response.data;
     },
   });
+
+  useEffect(() => {
+    refetch();
+  }, [refetchKey, refetch]);
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString();

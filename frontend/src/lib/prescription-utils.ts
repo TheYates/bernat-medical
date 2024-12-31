@@ -41,18 +41,12 @@ export const timings = [
 
 // Prescription validation schema
 export const prescriptionSchema = z.object({
-  drugs: z
-    .array(
-      z.object({
-        drugId: z.string(),
-        dosage: z.string().min(1, "Dosage is required"),
-        frequency: z.string().min(1, "Frequency is required"),
-        duration: z.string().min(1, "Duration is required"),
-        route: z.string().min(1, "Route is required"),
-      })
-    )
-    .min(1, "At least one medication is required"),
-  instructions: z.string().optional(),
+  drugId: z.number({ required_error: "Drug is required" }),
+  dosage: z.string({ required_error: "Dosage is required" }).min(1, "Dosage is required"),
+  frequency: z.string({ required_error: "Frequency is required" }).min(1, "Frequency is required"),
+  duration: z.string({ required_error: "Duration is required" }).min(1, "Duration is required"),
+  quantity: z.string({ required_error: "Quantity is required" }).min(1, "Quantity is required"),
+  route: z.string({ required_error: "Route is required" }).min(1, "Route is required")
 });
 
 // Calculate quantity based on dosage, frequency and duration

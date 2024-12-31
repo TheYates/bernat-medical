@@ -27,6 +27,8 @@ import serviceRoutes from './service.routes';
 import prescriptionRoutes from './prescription.routes';
 import labRequestRoutes from './lab-request.routes';
 import xrayRequestRoutes from './xray-request.routes';
+import pharmacyRoutes from './pharmacy.routes';
+
 
 const router = express.Router();
 
@@ -61,5 +63,6 @@ router.use('/patients', patientRoutes);
 router.use('/services', serviceRoutes);
 router.use('/prescriptions', prescriptionRoutes);
 router.use('/xray-requests', xrayRequestRoutes);
+router.use('/pharmacy', pharmacyRoutes);
 
 export default router; 

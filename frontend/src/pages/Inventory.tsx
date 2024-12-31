@@ -23,7 +23,7 @@ import {
 import { formatPrice } from "@/lib/utils";
 import { EditDrugDialog } from '@/components/inventory/EditDrugDialog';
 import { RestockDrugDialog } from '@/components/inventory/RestockDrugDialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Drug } from '@/types/inventory';
 import { PendingRestocks } from '@/components/inventory/PendingRestocks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -151,6 +151,18 @@ export function InventoryPage() {
     },
   ];
 
+  // Add event listener for inventory updates
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleInventoryUpdate = () => {
+      setRefetchTrigger(prev => prev + 1);
+    };
+
+    window.addEventListener('inventory-updated', handleInventoryUpdate);
+    return () => window.removeEventListener('inventory-updated', handleInventoryUpdate);
+  }, []);
+
   return (
     <DashboardLayout>
       <div className="space-y-6 p-6">
@@ -174,13 +186,13 @@ export function InventoryPage() {
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
               <TabsContent value="drugs">
-                <DrugsList columns={columns} />
+                <DrugsList columns={columns} refetchKey={refetchTrigger} />
               </TabsContent>
               <TabsContent value="restock">
-                <RestockList />
+                <RestockList refetchKey={refetchTrigger} />
               </TabsContent>
               <TabsContent value="lowstock">
-                <LowStockList />
+                <LowStockList refetchKey={refetchTrigger} />
               </TabsContent>
               <TabsContent value="expiry">
                 <ExpiryList />
@@ -204,8 +216,7 @@ export function InventoryPage() {
         onOpenChange={setShowEditDialog}
         onSuccess={() => {
           setShowEditDialog(false);
-          // Refresh the drugs list
-          window.location.reload();
+          setRefetchTrigger(prev => prev + 1);
         }}
       />
 
@@ -215,8 +226,7 @@ export function InventoryPage() {
         onOpenChange={setShowRestockDialog}
         onSuccess={() => {
           setShowRestockDialog(false);
-          // Refresh the drugs list
-          window.location.reload();
+          setRefetchTrigger(prev => prev + 1);
         }}
       />
     </DashboardLayout>

@@ -18,7 +18,11 @@ interface Drug {
   minStock: number;
 }
 
-export function LowStockList() {
+interface LowStockListProps {
+  refetchKey?: number;
+}
+
+export function LowStockList({ refetchKey }: LowStockListProps) {
   const { data: drugs, isLoading } = useQuery({
     queryKey: ['low-stock-drugs'],
     queryFn: async () => {

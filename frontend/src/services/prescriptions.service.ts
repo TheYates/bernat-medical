@@ -29,15 +29,18 @@ export interface PrescriptionItem {
 
 export interface Prescription {
   id: string;
-  patientId: string;
-  prescribedAt: string;
+  createdAt: string;
   status: 'pending' | 'dispensed';
-  items: PrescriptionItem[];
-  instructions?: string;
-  dispensedAt?: string;
-  dispensedBy?: {
-    fullName: string;
+  drug: {
+    id: string;
+    genericName: string;
+    strength: string;
   };
+  dosage: string;
+  frequency: string;
+  duration: string;
+  route: string;
+  quantity: number;
 }
 
 export const prescriptionsService = {

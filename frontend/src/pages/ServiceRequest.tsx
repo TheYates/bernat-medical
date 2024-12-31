@@ -1,21 +1,28 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { format } from 'date-fns';
-import { 
-  ChevronsUpDown, 
-  Printer, 
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from "date-fns";
+import {
+  ChevronsUpDown,
+  Printer,
   Check,
   Trash2,
   Filter,
-  X
-} from 'lucide-react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+  X,
+} from "lucide-react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -46,15 +53,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { api } from '@/lib/api';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -65,8 +66,14 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { debounce } from 'lodash';
-import { Select, SelectContent, SelectValue, SelectTrigger, SelectItem } from '@/components/ui/select';
+import { debounce } from "lodash";
+import {
+  Select,
+  SelectContent,
+  SelectValue,
+  SelectTrigger,
+  SelectItem,
+} from "@/components/ui/select";
 import { PatientIdCard } from "@/components/PatientIdCard";
 
 interface Patient {
@@ -89,18 +96,25 @@ interface Service {
 
 interface ServiceRequest {
   id: number;
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
+  status: "Pending" | "In Progress" | "Completed" | "Cancelled";
   createdAt: string;
-  services: Array<{
-    id: number;
+  patient: {
+    firstName: string;
+    lastName: string;
+    clinicId: string;
+  };
+  service: {
     name: string;
     price: number;
-    priceAtTime: number;
-  } | null> | null;
+  };
+  result?: string;
+  performedBy?: {
+    fullName: string;
+  };
 }
 
 const formSchema = z.object({
-  clinicId: z.string().min(1, 'Clinic ID is required'),
+  clinicId: z.string().min(1, "Clinic ID is required"),
 });
 
 export function ServiceRequest() {
@@ -109,27 +123,32 @@ export function ServiceRequest() {
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(
+    null
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [searchForm, setSearchForm] = useState({
-    searchTerm: '',
-    gender: 'any',
-    maritalStatus: 'any',
-    ageRange: 'any',
-    lastVisit: 'any'
+    searchTerm: "",
+    gender: "any",
+    maritalStatus: "any",
+    ageRange: "any",
+    lastVisit: "any",
   });
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [requestHistory, setRequestHistory] = useState<ServiceRequest[]>([]);
 
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      clinicId: '',
+      clinicId: "",
     },
   });
 
@@ -137,20 +156,21 @@ export function ServiceRequest() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await api.get('/services');
+        const response = await api.get("/services");
         setServices(response.data);
       } catch (error) {
-        console.error('Error fetching services:', error);
-        toast.error('Failed to load services');
+        console.error("Error fetching services:", error);
+        toast.error("Failed to load services");
       }
     };
     fetchServices();
   }, []);
 
   // Filter services based on search term
-  const filteredServices = services.filter(service => 
-    service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredServices = services.filter(
+    (service) =>
+      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      service.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Helper functions
@@ -159,41 +179,44 @@ export function ServiceRequest() {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
-    
+
     return age;
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GH', {
-      style: 'currency',
-      currency: 'GHS',
-      currencyDisplay: 'symbol'
+    return new Intl.NumberFormat("en-GH", {
+      style: "currency",
+      currency: "GHS",
+      currencyDisplay: "symbol",
     }).format(amount);
   };
 
   const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
+    if (!dateString) return "-";
     try {
       return format(new Date(dateString), "dd MMM yyyy");
     } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return '-';
+      console.error("Error formatting date:", dateString, error);
+      return "-";
     }
   };
 
   // Service management functions
   const addService = (service: Service) => {
-    if (!selectedServices.some(s => s.id === service.id)) {
+    if (!selectedServices.some((s) => s.id === service.id)) {
       setSelectedServices([...selectedServices, service]);
     }
   };
 
   const removeService = (serviceId: number) => {
-    setSelectedServices(selectedServices.filter(s => s.id !== serviceId));
+    setSelectedServices(selectedServices.filter((s) => s.id !== serviceId));
   };
 
   // Event handlers
@@ -209,122 +232,130 @@ export function ServiceRequest() {
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
-      
-      const historyResponse = await api.get(`/services/requests/${response.data.id}`);
+
+      const historyResponse = await api.get(
+        `/services/requests/${response.data.id}`
+      );
       setRequests(historyResponse.data);
     } catch (error) {
       // Clear everything if patient not found
       setPatient(null);
       setRequests([]);
       setSelectedServices([]); // Also clear selected services
-      console.error('Error fetching patient:', error);
+      console.error("Error fetching patient:", error);
       if (value.length >= 6) {
-        toast.error('Patient not found');
+        toast.error("Patient not found");
       }
     }
   };
 
   const handleCreateRequest = async () => {
     if (!patient || selectedServices.length === 0) {
-      toast.error('Please select a patient and at least one service');
+      toast.error("Please select a patient and at least one service");
       return;
     }
 
     try {
-      const response = await api.post('/services/request', {
+      const response = await api.post("/services/request", {
         patientId: patient.id,
-        services: selectedServices.map(s => s.id)
+        services: selectedServices.map((s) => s.id),
       });
 
-      toast.success('Service request created successfully');
-      
+      toast.success("Service request created successfully");
+
       // Refresh the request history
       const historyResponse = await api.get(`/services/requests/${patient.id}`);
       setRequests(historyResponse.data);
-      
+
       // Clear selected services
       setSelectedServices([]);
-      
+
       // Close the confirmation dialog
       setShowCreateDialog(false);
     } catch (error) {
-      console.error('Error creating service request:', error);
-      toast.error('Failed to create service request');
+      console.error("Error creating service request:", error);
+      toast.error("Failed to create service request");
     }
   };
 
   const handleCancelRequest = async (requestId: number) => {
     try {
       await api.patch(`/services/requests/${requestId}/cancel`);
-      
+
       // Update the request status in the UI
-      setRequests(requests.map(request => 
-        request.id === requestId 
-          ? { ...request, status: 'Cancelled' as const }
-          : request
-      ));
-      
-      toast.success('Service request cancelled successfully');
+      setRequests(
+        requests.map((request) =>
+          request.id === requestId
+            ? { ...request, status: "Cancelled" as const }
+            : request
+        )
+      );
+
+      toast.success("Service request cancelled successfully");
       setShowCancelDialog(false);
     } catch (error) {
-      console.error('Error cancelling request:', error);
-      toast.error('Failed to cancel request');
+      console.error("Error cancelling request:", error);
+      toast.error("Failed to cancel request");
     }
   };
 
   const handleAdvancedSearch = async () => {
     try {
-      const response = await api.get('/patients/search', { 
+      const response = await api.get("/patients/search", {
         params: {
           ...searchForm,
           // Only include non-empty/non-'any' values
           ...Object.fromEntries(
-            Object.entries(searchForm).filter(([_, value]) => 
-              value !== '' && value !== 'any'
+            Object.entries(searchForm).filter(
+              ([_, value]) => value !== "" && value !== "any"
             )
-          )
-        }
+          ),
+        },
       });
       setSearchResults(response.data);
     } catch (error) {
-      console.error('Error searching patients:', error);
-      toast.error('Failed to search patients');
+      console.error("Error searching patients:", error);
+      toast.error("Failed to search patients");
     }
   };
 
   const handlePatientSelect = (selectedPatient: Patient) => {
     setPatient(selectedPatient);
-    form.setValue('clinicId', selectedPatient.clinicId);
+    form.setValue("clinicId", selectedPatient.clinicId);
     setShowSearchDialog(false);
-    
-    api.get(`/services/requests/${selectedPatient.id}`)
-      .then(response => setRequests(response.data))
-      .catch(error => console.error('Error fetching request history:', error));
+
+    api
+      .get(`/services/requests/${selectedPatient.id}`)
+      .then((response) => setRequests(response.data))
+      .catch((error) =>
+        console.error("Error fetching request history:", error)
+      );
   };
 
   // Add debounced search
   const debouncedSearch = debounce((term: string) => {
     if (term.length >= 3) {
-      api.get('/patients/search', { 
-        params: { searchTerm: term } 
-      })
-        .then(response => setSearchResults(response.data))
-        .catch(error => console.error('Error searching:', error));
+      api
+        .get("/patients/search", {
+          params: { searchTerm: term },
+        })
+        .then((response) => setSearchResults(response.data))
+        .catch((error) => console.error("Error searching:", error));
     } else {
       setSearchResults([]);
     }
   }, 300);
 
   const hasSearchCriteria = () => {
-    return Object.values(searchForm).some(value => 
-      value !== '' && value !== 'any'
+    return Object.values(searchForm).some(
+      (value) => value !== "" && value !== "any"
     );
   };
 
   // Update the form submission handler
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     if (selectedServices.length === 0) {
-      toast.error('Please select at least one service');
+      toast.error("Please select at least one service");
       return;
     }
     setShowCreateDialog(true);
@@ -337,12 +368,31 @@ export function ServiceRequest() {
     }
   }, 300);
 
+  // Add useEffect to fetch history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const response = await api.get("/services/requests/history");
+        setRequestHistory(response.data);
+      } catch (error) {
+        toast.error("Failed to fetch request history");
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
   return (
     <DashboardLayout>
       <div className="max-w-[900px] mx-auto">
         <div className="mb-2 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Service Request</h1>
+            <h1 className="text-lg font-bold tracking-tight">
+              Service Request
+            </h1>
             <p className="text-sm text-muted-foreground">
               Create a new service request
             </p>
@@ -350,9 +400,20 @@ export function ServiceRequest() {
         </div>
 
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Create Service Request
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Request new service for patient
+                </p>
+              </div>
+            </div>
+
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+              <form onSubmit={form.handleSubmit(onSubmit)}>
                 <div className="flex justify-between items-end">
                   <FormField
                     control={form.control}
@@ -473,11 +534,15 @@ export function ServiceRequest() {
                         }
                       `}
                     </style>
-                    
-                    <PatientIdCard patient={patient} calculateAge={calculateAge} />
+
+                    <PatientIdCard
+                      patient={patient}
+                      calculateAge={calculateAge}
+                    />
                   </>
                 )}
 
+                {/* Service details section */}
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />
@@ -489,226 +554,241 @@ export function ServiceRequest() {
                   </div>
                 </div>
 
-                <Tabs defaultValue="services" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="services">Select Services</TabsTrigger>
-                    <TabsTrigger value="history">Request History</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="services" className="space-y-4">
-                    <div className="bg-muted/30 rounded-lg p-4">
-                      <div className="flex items-center gap-4">
-                        <Popover open={open} onOpenChange={setOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={open}
-                              className="w-[300px] justify-between h-10 text-sm border-2 hover:border-primary"
-                            >
-                              Search services...
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput
-                                placeholder="Search services..."
-                                onValueChange={setSearchTerm}
-                                className="h-9"
-                              />
-                              <CommandList>
-                                <CommandEmpty>No services found</CommandEmpty>
-                                <CommandGroup>
-                                  {filteredServices.map((service) => (
-                                    <CommandItem
-                                      key={service.id}
-                                      value={service.name}
-                                      onSelect={() => {
-                                        addService(service);
-                                        setOpen(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          selectedServices.some(
-                                            (s) => s.id === service.id
-                                          )
-                                            ? "opacity-100"
-                                            : "opacity-0"
-                                        )}
-                                      />
-                                      <div className="flex-1">
-                                        <p className="text-sm">{service.name}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {service.category} -{" "}
-                                          {formatCurrency(Number(service.price))}
-                                        </p>
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-
-                      {selectedServices.length > 0 ? (
-                        <div className="mt-4 border rounded-lg bg-card shadow-sm">
-                          <Table>
-                            <TableHeader>
+                <Card>
+                  <CardContent className="p-6">
+                    {showHistory ? (
+                      <>
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="font-semibold">
+                            Service Request History
+                          </h3>
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => setShowHistory(false)}
+                          >
+                            ← Back to Request
+                          </Button>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Service</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Result</TableHead>
+                              <TableHead>Performed By</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {isLoadingHistory ? (
                               <TableRow>
-                                <TableHead className="text-xs">Service</TableHead>
-                                <TableHead className="text-xs">Category</TableHead>
-                                <TableHead className="text-xs text-right">Price</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
+                                <TableCell
+                                  colSpan={5}
+                                  className="text-center h-24"
+                                >
+                                  Loading...
+                                </TableCell>
                               </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {selectedServices.map((service) => (
-                                <TableRow key={service.id}>
-                                  <TableCell className="text-sm">{service.name}</TableCell>
-                                  <TableCell className="text-sm">{service.category}</TableCell>
-                                  <TableCell className="text-sm text-right">
-                                    {formatCurrency(Number(service.price))}
-                                  </TableCell>
+                            ) : requestHistory.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  className="text-center h-24 text-muted-foreground"
+                                >
+                                  No service request history found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              requestHistory.map((request) => (
+                                <TableRow key={request.id}>
                                   <TableCell>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => removeService(service.id)}
-                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+                                    {format(
+                                      new Date(request.createdAt),
+                                      "dd MMM yyyy"
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{request.service.name}</TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        request.status === "Completed"
+                                          ? "success"
+                                          : "secondary"
+                                      }
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                      {request.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{request.result || "-"}</TableCell>
+                                  <TableCell>
+                                    {request.performedBy?.fullName || "-"}
                                   </TableCell>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No services selected
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="p-4 bg-muted/50 border-t">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Amount</p>
-                          <p className="text-2xl font-bold">
-                            {formatCurrency(
-                              selectedServices.reduce(
-                                (total, service) => total + Number(service.price),
-                                0
-                              )
+                              ))
                             )}
-                          </p>
-                        </div>
-                        <Button
-                          type="submit"
-                          size="lg"
-                          className="px-6"
-                          disabled={!patient || selectedServices.length === 0}
-                        >
-                          Create Request
-                        </Button>
-                      </div>
-                    </div>
-                  </TabsContent>
+                          </TableBody>
+                        </Table>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                          <Popover open={open} onOpenChange={setOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={open}
+                                className="w-[300px] justify-between h-10 text-sm border-2 hover:border-primary"
+                              >
+                                Search services...
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0">
+                              <Command>
+                                <CommandInput
+                                  placeholder="Search services..."
+                                  onValueChange={setSearchTerm}
+                                  className="h-9"
+                                />
+                                <CommandList>
+                                  <CommandEmpty>No services found</CommandEmpty>
+                                  <CommandGroup>
+                                    {filteredServices.map((service) => (
+                                      <CommandItem
+                                        key={service.id}
+                                        value={service.name}
+                                        onSelect={() => {
+                                          addService(service);
+                                          setOpen(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedServices.some(
+                                              (s) => s.id === service.id
+                                            )
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex-1">
+                                          <p className="text-sm">
+                                            {service.name}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {service.category} -{" "}
+                                            {formatCurrency(
+                                              Number(service.price)
+                                            )}
+                                          </p>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
 
-                  <TabsContent value="history">
-                    <div className="border rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Date</TableHead>
-                            <TableHead className="text-xs">Services</TableHead>
-                            <TableHead className="text-xs">Status</TableHead>
-                            <TableHead className="text-xs text-right">Amount</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {requests.length > 0 ? (
-                            requests.map((request) => (
-                              <TableRow key={request.id}>
-                                <TableCell className="text-sm">
-                                  {formatDate(request.createdAt)}
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {request.services && request.services.length > 0
-                                    ? request.services
-                                        .filter(s => s && s.name)
-                                        .map(s => s!.name)
-                                        .join(", ")
-                                    : "-"}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant={
-                                      request.status === "Completed"
-                                        ? "success"
-                                        : request.status === "In Progress"
-                                        ? "secondary"
-                                        : request.status === "Cancelled"
-                                        ? "destructive"
-                                        : "default"
-                                    }
-                                    className="text-xs"
-                                  >
-                                    {request.status}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-sm text-right">
-                                  {formatCurrency(
-                                    request.services && request.services.length > 0
-                                      ? request.services.reduce(
-                                          (total, s) => total + (s ? Number(s.priceAtTime) : 0),
-                                          0
-                                        )
-                                      : 0
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {request.status !== "Cancelled" &&
-                                    request.status !== "Completed" && (
+                          <Button
+                            variant="outline"
+                            type="button"
+                            onClick={() => setShowHistory(true)}
+                          >
+                            View History
+                            {requestHistory.length > 0 && (
+                              <Badge variant="secondary" className="ml-2">
+                                {requestHistory.length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </div>
+
+                        {selectedServices.length > 0 ? (
+                          <div className="border rounded-lg bg-card shadow-sm">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">
+                                    Service
+                                  </TableHead>
+                                  <TableHead className="text-xs">
+                                    Category
+                                  </TableHead>
+                                  <TableHead className="text-xs text-right">
+                                    Price
+                                  </TableHead>
+                                  <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {selectedServices.map((service) => (
+                                  <TableRow key={service.id}>
+                                    <TableCell className="text-sm">
+                                      {service.name}
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                      {service.category}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-right">
+                                      {formatCurrency(Number(service.price))}
+                                    </TableCell>
+                                    <TableCell>
                                       <Button
+                                        type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => {
-                                          setSelectedRequestId(request.id);
-                                          setShowCancelDialog(true);
-                                        }}
+                                        onClick={() =>
+                                          removeService(service.id)
+                                        }
                                         className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
-                                    )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-8">
-                                <p className="text-sm text-muted-foreground">
-                                  {patient
-                                    ? "No service requests found for this patient"
-                                    : "Enter a clinic ID to view service request history"}
-                                </p>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No services selected
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <div className="p-4 bg-muted/50 border-t">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Amount
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(
+                          selectedServices.reduce(
+                            (total, service) => total + Number(service.price),
+                            0
+                          )
+                        )}
+                      </p>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="px-6"
+                      disabled={!patient || selectedServices.length === 0}
+                    >
+                      Create Request
+                    </Button>
+                  </div>
+                </div>
               </form>
             </Form>
           </CardContent>
@@ -802,7 +882,10 @@ export function ServiceRequest() {
                   placeholder="Search by name, clinic ID, or contact..."
                   value={searchForm.searchTerm}
                   onChange={(e) => {
-                    setSearchForm(prev => ({ ...prev, searchTerm: e.target.value }));
+                    setSearchForm((prev) => ({
+                      ...prev,
+                      searchTerm: e.target.value,
+                    }));
                     if (e.target.value.length >= 3) {
                       handleAdvancedSearch();
                     }
@@ -816,7 +899,7 @@ export function ServiceRequest() {
                     size="sm"
                     className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
                     onClick={() => {
-                      setSearchForm(prev => ({ ...prev, searchTerm: '' }));
+                      setSearchForm((prev) => ({ ...prev, searchTerm: "" }));
                       setSearchResults([]);
                     }}
                   >
@@ -824,12 +907,21 @@ export function ServiceRequest() {
                   </Button>
                 )}
               </div>
-              <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
-                {Object.values(searchForm).some(v => v !== '' && v !== 'any') && (
+                {Object.values(searchForm).some(
+                  (v) => v !== "" && v !== "any"
+                ) && (
                   <Badge variant="secondary" className="ml-2">
-                    {Object.values(searchForm).filter(v => v !== '' && v !== 'any').length}
+                    {
+                      Object.values(searchForm).filter(
+                        (v) => v !== "" && v !== "any"
+                      ).length
+                    }
                   </Badge>
                 )}
               </Button>
@@ -844,7 +936,7 @@ export function ServiceRequest() {
                     <Select
                       value={searchForm.gender}
                       onValueChange={(value) => {
-                        setSearchForm(prev => ({ ...prev, gender: value }));
+                        setSearchForm((prev) => ({ ...prev, gender: value }));
                         handleAdvancedSearch();
                       }}
                     >
@@ -864,7 +956,7 @@ export function ServiceRequest() {
                     <Select
                       value={searchForm.ageRange}
                       onValueChange={(value) => {
-                        setSearchForm(prev => ({ ...prev, ageRange: value }));
+                        setSearchForm((prev) => ({ ...prev, ageRange: value }));
                         handleAdvancedSearch();
                       }}
                     >
@@ -886,7 +978,10 @@ export function ServiceRequest() {
                     <Select
                       value={searchForm.lastVisit}
                       onValueChange={(value) => {
-                        setSearchForm(prev => ({ ...prev, lastVisit: value }));
+                        setSearchForm((prev) => ({
+                          ...prev,
+                          lastVisit: value,
+                        }));
                         handleAdvancedSearch();
                       }}
                     >
@@ -909,11 +1004,11 @@ export function ServiceRequest() {
                       size="sm"
                       onClick={() => {
                         setSearchForm({
-                          searchTerm: '',
-                          gender: 'any',
-                          maritalStatus: 'any',
-                          ageRange: 'any',
-                          lastVisit: 'any'
+                          searchTerm: "",
+                          gender: "any",
+                          maritalStatus: "any",
+                          ageRange: "any",
+                          lastVisit: "any",
                         });
                         setSearchResults([]);
                       }}
@@ -943,7 +1038,8 @@ export function ServiceRequest() {
                       <TableCell>
                         <div>
                           <p className="font-medium">
-                            {patient.firstName} {patient.middleName} {patient.lastName}
+                            {patient.firstName} {patient.middleName}{" "}
+                            {patient.lastName}
                           </p>
                         </div>
                       </TableCell>
@@ -966,7 +1062,10 @@ export function ServiceRequest() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSearchDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowSearchDialog(false)}
+            >
               Cancel
             </Button>
           </DialogFooter>
@@ -974,4 +1073,4 @@ export function ServiceRequest() {
       </Dialog>
     </DashboardLayout>
   );
-} 
+}

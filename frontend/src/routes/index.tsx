@@ -13,7 +13,7 @@ import { VitalSigns } from '@/pages/VitalSigns';
 import { ConsultationPage } from '@/pages/Consultation';
 import { LaboratoryPage } from '@/pages/Laboratory';
 import { XrayPage } from '@/pages/Xray';
-
+import { PharmacyPage } from '@/pages/Pharmacy';
 
 export const router = createBrowserRouter([
   {
@@ -71,6 +71,10 @@ export const router = createBrowserRouter([
         <XrayPage />
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/dashboard/pharmacy',
+    element: <ProtectedRoute><PharmacyPage /></ProtectedRoute>,
   },
   {
     path: '*',

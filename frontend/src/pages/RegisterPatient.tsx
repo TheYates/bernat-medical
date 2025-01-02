@@ -1,15 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { format } from 'date-fns';
-import { InfoIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from "date-fns";
+import { InfoIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -17,15 +14,15 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +30,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,19 +40,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { api } from '@/lib/api';
-import { toast } from 'sonner';
+} from "@/components/ui/alert-dialog";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   clinicId: z.string(),
-  firstName: z.string().min(1, 'First name is required'),
-  middleName: z.string().min(1, 'Middle name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  gender: z.string().min(1, 'Gender is required'),
-  contact: z.string().min(1, 'Contact number is required'),
+  firstName: z.string().min(1, "First name is required"),
+  middleName: z.string().min(1, "Middle name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  gender: z.string().min(1, "Gender is required"),
+  contact: z.string().min(1, "Contact number is required"),
   maritalStatus: z.string().optional(),
   residence: z.string().optional(),
   emergencyContactName: z.string().optional(),
@@ -72,47 +69,50 @@ export function RegisterPatient() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      clinicId: 'CLN0001', // This should be generated
-      firstName: '',
-      middleName: '',
-      lastName: '',
-      dateOfBirth: '',
-      gender: '',
-      contact: '',
-      maritalStatus: '',
-      residence: '',
-      emergencyContactName: '',
-      emergencyContactNumber: '',
-      emergencyContactRelation: '',
+      clinicId: "CLN0001", // This should be generated
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      dateOfBirth: "",
+      gender: "",
+      contact: "",
+      maritalStatus: "",
+      residence: "",
+      emergencyContactName: "",
+      emergencyContactNumber: "",
+      emergencyContactRelation: "",
     },
   });
 
   const [settings, setSettings] = useState({
-    idPrefix: 'CLN',
+    idPrefix: "CLN",
     startingNumber: 1,
     digitLength: 6,
-    lastNumber: 0
+    lastNumber: 0,
   });
 
   useEffect(() => {
     const fetchNextClinicId = async () => {
       try {
         // Get both settings and last ID in one call
-        const response = await api.get('/patients/last-id');
+        const response = await api.get("/patients/last-id");
         const { settings, lastId } = response.data;
-        
+
         // Generate next clinic ID
         let nextNumber = 1;
         if (lastId) {
-          const numericPart = parseInt(lastId.replace(settings.prefix, ''));
+          const numericPart = parseInt(lastId.replace(settings.prefix, ""));
           nextNumber = numericPart + 1;
         }
 
-        const nextClinicId = `${settings.prefix}${String(nextNumber).padStart(settings.digitLength, '0')}`;
-        form.setValue('clinicId', nextClinicId);
+        const nextClinicId = `${settings.prefix}${String(nextNumber).padStart(
+          settings.digitLength,
+          "0"
+        )}`;
+        form.setValue("clinicId", nextClinicId);
       } catch (error) {
-        console.error('Failed to generate next clinic ID:', error);
-        toast.error('Failed to generate clinic ID');
+        console.error("Failed to generate next clinic ID:", error);
+        toast.error("Failed to generate clinic ID");
       }
     };
 
@@ -126,12 +126,14 @@ export function RegisterPatient() {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
-      await api.post('/patients/register', data);
-      toast.success('Patient registered successfully');
+      await api.post("/patients/register", data);
+      toast.success("Patient registered successfully");
       setShowConfirmation(false);
       setShowServicePrompt(true);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to register patient');
+      toast.error(
+        error.response?.data?.message || "Failed to register patient"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -141,16 +143,16 @@ export function RegisterPatient() {
     setShowServicePrompt(false);
     if (requestServices) {
       // Navigate to services page
-      navigate('/dashboard/services');
+      navigate("/dashboard/services");
     } else {
       // Navigate back to patients list
-      navigate('/dashboard/patients');
+      navigate("/dashboard/patients");
     }
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-[900px] mx-auto">
+      <div className="max-w-[960px] mx-auto">
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">
@@ -235,7 +237,9 @@ export function RegisterPatient() {
                     name="dateOfBirth"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm">Date of Birth*</FormLabel>
+                        <FormLabel className="text-sm">
+                          Date of Birth*
+                        </FormLabel>
                         <FormControl>
                           <Input
                             type="date"
@@ -257,7 +261,8 @@ export function RegisterPatient() {
                         const birthDate = new Date(dob);
                         const today = new Date();
                         let age = today.getFullYear() - birthDate.getFullYear();
-                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        const monthDiff =
+                          today.getMonth() - birthDate.getMonth();
                         if (
                           monthDiff < 0 ||
                           (monthDiff === 0 &&
@@ -304,7 +309,9 @@ export function RegisterPatient() {
                     name="contact"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm">Contact Number*</FormLabel>
+                        <FormLabel className="text-sm">
+                          Contact Number*
+                        </FormLabel>
                         <FormControl>
                           <Input {...field} className="h-10 text-sm" />
                         </FormControl>
@@ -318,7 +325,9 @@ export function RegisterPatient() {
                     name="maritalStatus"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm">Marital Status</FormLabel>
+                        <FormLabel className="text-sm">
+                          Marital Status
+                        </FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
@@ -365,7 +374,9 @@ export function RegisterPatient() {
                       name="emergencyContactName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm">Contact Name</FormLabel>
+                          <FormLabel className="text-sm">
+                            Contact Name
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} className="h-10 text-sm" />
                           </FormControl>
@@ -379,7 +390,9 @@ export function RegisterPatient() {
                       name="emergencyContactNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm">Contact Number</FormLabel>
+                          <FormLabel className="text-sm">
+                            Contact Number
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} className="h-10 text-sm" />
                           </FormControl>
@@ -393,7 +406,9 @@ export function RegisterPatient() {
                       name="emergencyContactRelation"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-sm">Relationship</FormLabel>
+                          <FormLabel className="text-sm">
+                            Relationship
+                          </FormLabel>
                           <FormControl>
                             <Input {...field} className="h-10 text-sm" />
                           </FormControl>
@@ -456,8 +471,7 @@ export function RegisterPatient() {
                 <div>
                   <label className="text-sm font-medium">Full Name</label>
                   <p className="text-sm">
-                    {form.getValues("firstName")}{" "}
-                    {form.getValues("middleName")}{" "}
+                    {form.getValues("firstName")} {form.getValues("middleName")}{" "}
                     {form.getValues("lastName")}
                   </p>
                 </div>
@@ -533,7 +547,10 @@ export function RegisterPatient() {
         </Dialog>
 
         {/* Service Prompt Dialog */}
-        <AlertDialog open={showServicePrompt} onOpenChange={setShowServicePrompt}>
+        <AlertDialog
+          open={showServicePrompt}
+          onOpenChange={setShowServicePrompt}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Request Services?</AlertDialogTitle>
@@ -558,4 +575,4 @@ export function RegisterPatient() {
       </div>
     </DashboardLayout>
   );
-} 
+}

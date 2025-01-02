@@ -1,22 +1,24 @@
-import { useState, useCallback, useEffect } from 'react';
-import { PrescriptionsTab } from './PrescriptionsTab';
-import { prescriptionsService, type Drug, type PrescriptionItem } from '@/services/prescriptions.service';
-import { generateId } from '@/lib/prescription-utils';
-import { toast } from 'sonner';
-import { drugsService } from '@/services/drugs.service';
+import { useState, useCallback, useEffect } from "react";
+import { PrescriptionsTab } from "./PrescriptionsTab";
+import {
+  prescriptionsService,
+  type Drug,
+  type PrescriptionItem,
+} from "@/services/prescriptions.service";
+import { generateId } from "@/lib/prescription-utils";
+import { toast } from "sonner";
+import { drugsService } from "@/services/drugs.service";
 
 interface ConsultationTabsProps {
   patient: any;
 }
 
 export function ConsultationTabs({ patient }: ConsultationTabsProps) {
-  // console.log('ConsultationTabs mounted with patient:', patient);
-
   // Prescription state
   const [selectedDrugs, setSelectedDrugs] = useState<PrescriptionItem[]>([]);
   const [prescriptionHistory, setPrescriptionHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [instructions, setInstructions] = useState('');
+  const [instructions, setInstructions] = useState("");
   const [availableDrugs, setAvailableDrugs] = useState<Drug[]>([]);
   const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
 
@@ -30,14 +32,14 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
   // Load prescription history
   const loadPrescriptionHistory = useCallback(async () => {
     if (!patient?.id) return;
-    
+
     setIsLoadingHistory(true);
     try {
       const history = await prescriptionsService.getHistory(patient.id);
       setPrescriptionHistory(history);
     } catch (error) {
       // console.error('Error loading prescription history:', error);
-      toast.error('Failed to load prescription history');
+      toast.error("Failed to load prescription history");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -46,18 +48,13 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
   // Load active drugs
   useEffect(() => {
     const loadDrugs = async () => {
-    //   console.log('Starting to load drugs...');
       setIsLoadingDrugs(true);
       try {
-        const token = localStorage.getItem('token');
-        // console.log('Token found:', !!token);
-        
-        // console.log('Calling drugsService.getActive()');
+        const token = localStorage.getItem("token");
+
         const activeDrugs = await drugsService.getActive();
-        // console.log('Received drugs:', activeDrugs);
         setAvailableDrugs(activeDrugs);
       } catch (error) {
-        // console.error('Failed to load drugs:', error);
       } finally {
         setIsLoadingDrugs(false);
       }
@@ -72,7 +69,7 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
       id: generateId(),
       drugId: drug.id,
       drug,
-      prescriptionId: '',
+      prescriptionId: "",
       dosage: "1 tablet",
       frequency: "Once daily",
       duration: "1 days",
@@ -80,23 +77,28 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
       quantity: 1,
       salePricePerUnit: Number(drug.salePricePerUnit),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
-    
-    setSelectedDrugs(prev => [...prev, prescriptionItem]);
+
+    setSelectedDrugs((prev) => [...prev, prescriptionItem]);
   }, []);
 
   // Remove drug from prescription
   const handleRemoveDrug = useCallback((drugId: string) => {
-    setSelectedDrugs(prev => prev.filter(drug => drug.drugId !== drugId));
+    setSelectedDrugs((prev) => prev.filter((drug) => drug.drugId !== drugId));
   }, []);
 
   // Update drug details
-  const handleUpdateDrug = useCallback((drugId: string, updates: Partial<PrescriptionItem>) => {
-    setSelectedDrugs(prev => prev.map(drug => 
-      drug.drugId === drugId ? { ...drug, ...updates } : drug
-    ));
-  }, []);
+  const handleUpdateDrug = useCallback(
+    (drugId: string, updates: Partial<PrescriptionItem>) => {
+      setSelectedDrugs((prev) =>
+        prev.map((drug) =>
+          drug.drugId === drugId ? { ...drug, ...updates } : drug
+        )
+      );
+    },
+    []
+  );
 
   // Save prescription
   const handleSavePrescription = useCallback(async () => {
@@ -104,21 +106,21 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
 
     try {
       await prescriptionsService.create(patient.id, {
-        items: selectedDrugs.map(drug => ({
+        items: selectedDrugs.map((drug) => ({
           drugId: drug.drugId,
           dosage: drug.dosage,
           frequency: drug.frequency,
           duration: drug.duration,
           route: drug.route,
-          quantity: drug.quantity
+          quantity: drug.quantity,
         })),
-        instructions
+        instructions,
       });
 
       // Reset form
       setSelectedDrugs([]);
-      setInstructions('');
-      
+      setInstructions("");
+
       // Reload history
       await loadPrescriptionHistory();
     } catch (error) {
@@ -128,15 +130,18 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
   }, [patient?.id, selectedDrugs, instructions, loadPrescriptionHistory]);
 
   // Delete prescription
-  const handleDeletePrescription = useCallback(async (prescriptionId: string) => {
-    try {
-      await prescriptionsService.delete(prescriptionId);
-      await loadPrescriptionHistory();
-    } catch (error) {
-      // console.error('Error deleting prescription:', error);
-      throw error;
-    }
-  }, [loadPrescriptionHistory]);
+  const handleDeletePrescription = useCallback(
+    async (prescriptionId: string) => {
+      try {
+        await prescriptionsService.delete(prescriptionId);
+        await loadPrescriptionHistory();
+      } catch (error) {
+        // console.error('Error deleting prescription:', error);
+        throw error;
+      }
+    },
+    [loadPrescriptionHistory]
+  );
 
   return (
     <div className="space-y-4">
@@ -158,4 +163,4 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
       />
     </div>
   );
-} 
+}

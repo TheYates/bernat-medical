@@ -1,24 +1,67 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { format } from 'date-fns';
-import { Check, ChevronsUpDown, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { FormLabel } from '@/components/ui/form';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/utils';
-import { toast } from 'sonner';
-import { prescriptionsService, type Drug, type PrescriptionItem, type Prescription } from '@/services/prescriptions.service';
-import { frequencies, routes, calculateQuantity, prescriptionSchema, generateId } from '@/lib/prescription-utils';
-import { z } from 'zod';
-import { HistoryDrawer } from "@/components/shared/history-drawer";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { format } from "date-fns";
+import { Check, ChevronsUpDown, Trash2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { FormLabel } from "@/components/ui/form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  prescriptionsService,
+  type Drug,
+  type PrescriptionItem,
+  type Prescription,
+} from "@/services/prescriptions.service";
+import {
+  frequencies,
+  routes,
+  calculateQuantity,
+  prescriptionSchema,
+  generateId,
+} from "@/lib/prescription-utils";
+import { z } from "zod";
 
 interface PrescriptionsTabProps {
   patient: any;
@@ -38,41 +81,46 @@ interface PrescriptionsTabProps {
 }
 
 const formatDate = (dateString: string | null) => {
-  if (!dateString) return '';
+  if (!dateString) return "";
   try {
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    return format(new Date(dateString), "MMM d, yyyy h:mm a");
   } catch (error) {
-    console.error('Invalid date:', dateString);
-    return '';
+    console.error("Invalid date:", dateString);
+    return "";
   }
 };
 
 const prescriptionColumns = [
   {
     header: "Date",
-    cell: (prescription: Prescription) => format(new Date(prescription.createdAt), "dd MMM yyyy")
+    cell: (prescription: Prescription) =>
+      format(new Date(prescription.createdAt), "dd MMM yyyy"),
   },
   {
     header: "Drug",
     cell: (prescription: Prescription) => (
       <div>
         <p className="font-medium">{prescription.drug.genericName}</p>
-        <p className="text-sm text-muted-foreground">{prescription.drug.strength}</p>
+        <p className="text-sm text-muted-foreground">
+          {prescription.drug.strength}
+        </p>
       </div>
-    )
+    ),
   },
   {
     header: "Dosage",
-    cell: (prescription: Prescription) => prescription.dosage
+    cell: (prescription: Prescription) => prescription.dosage,
   },
   {
     header: "Status",
     cell: (prescription: Prescription) => (
-      <Badge variant={prescription.status === "dispensed" ? "success" : "secondary"}>
+      <Badge
+        variant={prescription.status === "dispensed" ? "success" : "secondary"}
+      >
         {prescription.status}
       </Badge>
-    )
-  }
+    ),
+  },
 ];
 
 export function PrescriptionsTab({
@@ -91,24 +139,19 @@ export function PrescriptionsTab({
   clearSelectedDrugs,
   isLoadingDrugs = false,
 }: PrescriptionsTabProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
   // Instead of using state for filtered drugs, compute them directly
   const filteredDrugs = useMemo(() => {
-    // console.log('Filtering drugs:', drugs); // Debug log
     return drugs.filter((drug) => {
       const searchLower = searchTerm.toLowerCase();
       const nameMatches = drug.genericName?.toLowerCase().includes(searchLower);
-      // console.log(`Drug ${drug.genericName}: active=${drug.active}, nameMatches=${nameMatches}`);
       return drug.active && nameMatches;
     });
   }, [searchTerm, drugs]);
-
-  // console.log('PrescriptionsTab rendered with drugs:', drugs);
-  // console.log('Filtered drugs:', filteredDrugs);
 
   const handleSave = async () => {
     try {
@@ -118,8 +161,15 @@ export function PrescriptionsTab({
       }
 
       // Validate each drug in selectedDrugs
-      selectedDrugs.forEach(drug => {
-        if (!drug.drugId || !drug.dosage || !drug.frequency || !drug.duration || !drug.quantity || !drug.route) {
+      selectedDrugs.forEach((drug) => {
+        if (
+          !drug.drugId ||
+          !drug.dosage ||
+          !drug.frequency ||
+          !drug.duration ||
+          !drug.quantity ||
+          !drug.route
+        ) {
           throw new Error("Please fill in all required fields");
         }
 
@@ -129,7 +179,7 @@ export function PrescriptionsTab({
           frequency: drug.frequency,
           duration: drug.duration.toString(),
           quantity: drug.quantity.toString(),
-          route: drug.route
+          route: drug.route,
         });
       });
 
@@ -140,7 +190,11 @@ export function PrescriptionsTab({
         const errors = error.errors.map((err) => err.message);
         toast.error(errors.join("\n"));
       } else {
-        toast.error(error instanceof Error ? error.message : "Please fill in all required fields");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Please fill in all required fields"
+        );
       }
     }
   };
@@ -175,9 +229,9 @@ export function PrescriptionsTab({
         drugId: drug.id,
         drug: {
           ...drug,
-          salePricePerUnit: Number(drug.salePricePerUnit)
+          salePricePerUnit: Number(drug.salePricePerUnit),
         },
-        prescriptionId: '',
+        prescriptionId: "",
         dosage: "1 tablet",
         frequency: "Once daily",
         duration: "1 days",
@@ -185,7 +239,7 @@ export function PrescriptionsTab({
         quantity: 1,
         salePricePerUnit: Number(drug.salePricePerUnit),
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
       onAddDrug(drug);
@@ -195,9 +249,12 @@ export function PrescriptionsTab({
   );
 
   // Update drug handler
-  const handleUpdateDrug = (drugId: string, updates: Partial<PrescriptionItem>) => {
+  const handleUpdateDrug = (
+    drugId: string,
+    updates: Partial<PrescriptionItem>
+  ) => {
     if (updates.dosage || updates.frequency || updates.duration) {
-      const drug = selectedDrugs.find(d => d.drugId === drugId);
+      const drug = selectedDrugs.find((d) => d.drugId === drugId);
       if (!drug) return;
 
       const newDosage = updates.dosage || drug.dosage;
@@ -223,10 +280,7 @@ export function PrescriptionsTab({
                   View past prescriptions
                 </p>
               </div>
-              <Button 
-                variant="ghost" 
-                onClick={() => setShowHistory(false)}
-              >
+              <Button variant="ghost" onClick={() => setShowHistory(false)}>
                 ← Back to Prescribing
               </Button>
             </div>
@@ -242,8 +296,8 @@ export function PrescriptionsTab({
               <TableBody>
                 {isLoadingHistory ? (
                   <TableRow>
-                    <TableCell 
-                      colSpan={prescriptionColumns.length} 
+                    <TableCell
+                      colSpan={prescriptionColumns.length}
                       className="text-center h-24"
                     >
                       Loading...
@@ -251,8 +305,8 @@ export function PrescriptionsTab({
                   </TableRow>
                 ) : prescriptionHistory.length === 0 ? (
                   <TableRow>
-                    <TableCell 
-                      colSpan={prescriptionColumns.length} 
+                    <TableCell
+                      colSpan={prescriptionColumns.length}
                       className="text-center h-24 text-muted-foreground"
                     >
                       No prescription history found
@@ -281,10 +335,7 @@ export function PrescriptionsTab({
                   Search and add medications
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowHistory(true)}
-              >
+              <Button variant="outline" onClick={() => setShowHistory(true)}>
                 View History
                 {prescriptionHistory.length > 0 && (
                   <Badge variant="secondary" className="ml-2">
@@ -296,10 +347,10 @@ export function PrescriptionsTab({
 
             {/* Drug Search */}
             <div className="flex items-center gap-2">
-              <Popover 
-                open={open} 
+              <Popover
+                open={open}
                 onOpenChange={(isOpen) => {
-                  console.log('Popover open state changed:', isOpen);
+                  console.log("Popover open state changed:", isOpen);
                   setOpen(isOpen);
                 }}
               >
@@ -324,14 +375,18 @@ export function PrescriptionsTab({
                 <PopoverContent className="w-[300px] p-0">
                   <Command>
                     <CommandInput
-                      placeholder={isLoadingDrugs ? "Loading..." : "Search drugs..."}
+                      placeholder={
+                        isLoadingDrugs ? "Loading..." : "Search drugs..."
+                      }
                       value={searchTerm}
                       onValueChange={setSearchTerm}
                       disabled={isLoadingDrugs}
                     />
                     <CommandList>
                       <CommandEmpty>
-                        {isLoadingDrugs ? "Loading medications..." : "No drugs found."}
+                        {isLoadingDrugs
+                          ? "Loading medications..."
+                          : "No drugs found."}
                       </CommandEmpty>
                       <CommandGroup>
                         {filteredDrugs.map((drug) => (
@@ -343,21 +398,30 @@ export function PrescriptionsTab({
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                selectedDrugs.find(d => d.drugId === drug.id) ? "opacity-100" : "opacity-0"
+                                selectedDrugs.find((d) => d.drugId === drug.id)
+                                  ? "opacity-100"
+                                  : "opacity-0"
                               )}
                             />
                             <div className="flex-1">
-                              <div className="font-medium">{drug.genericName}</div>
+                              <div className="font-medium">
+                                {drug.genericName}
+                              </div>
                               <div className="text-sm text-muted-foreground">
-                                {drug.brandName} • {formatCurrency(drug.salePricePerUnit)}
+                                {drug.brandName} •{" "}
+                                {formatCurrency(drug.salePricePerUnit)}
                               </div>
                             </div>
-                            <span className={cn(
-                              "ml-2",
-                              drug.saleQuantity === 0 && "text-destructive",
-                              drug.saleQuantity <= drug.minimumStock && "text-yellow-500",
-                              drug.saleQuantity > drug.minimumStock && "text-green-500"
-                            )}>
+                            <span
+                              className={cn(
+                                "ml-2",
+                                drug.saleQuantity === 0 && "text-destructive",
+                                drug.saleQuantity <= drug.minimumStock &&
+                                  "text-yellow-500",
+                                drug.saleQuantity > drug.minimumStock &&
+                                  "text-green-500"
+                              )}
+                            >
                               {drug.saleQuantity}
                             </span>
                           </CommandItem>
@@ -393,19 +457,26 @@ export function PrescriptionsTab({
                         <TableRow key={drug.id}>
                           <TableCell>
                             <div>
-                              <p className="font-medium">{drug.drug.genericName}</p>
+                              <p className="font-medium">
+                                {drug.drug.genericName}
+                              </p>
                               <p className="text-sm text-muted-foreground">
                                 {drug.drug.brandName} • {drug.drug.strength}
                               </p>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <p className={cn(
-                              "text-sm",
-                              drug.drug.saleQuantity === 0 && "text-destructive",
-                              drug.drug.saleQuantity <= drug.drug.minimumStock && "text-yellow-500",
-                              drug.drug.saleQuantity > drug.drug.minimumStock && "text-green-500"
-                            )}>
+                            <p
+                              className={cn(
+                                "text-sm",
+                                drug.drug.saleQuantity === 0 &&
+                                  "text-destructive",
+                                drug.drug.saleQuantity <=
+                                  drug.drug.minimumStock && "text-yellow-500",
+                                drug.drug.saleQuantity >
+                                  drug.drug.minimumStock && "text-green-500"
+                              )}
+                            >
                               {drug.drug.saleQuantity}
                             </p>
                           </TableCell>
@@ -413,14 +484,22 @@ export function PrescriptionsTab({
                             <Input
                               placeholder="e.g., 1 tablet"
                               value={drug.dosage}
-                              onChange={(e) => handleUpdateDrug(drug.drugId, { dosage: e.target.value })}
+                              onChange={(e) =>
+                                handleUpdateDrug(drug.drugId, {
+                                  dosage: e.target.value,
+                                })
+                              }
                               className="w-[120px]"
                             />
                           </TableCell>
                           <TableCell>
                             <Select
                               value={drug.frequency}
-                              onValueChange={(value) => handleUpdateDrug(drug.drugId, { frequency: value })}
+                              onValueChange={(value) =>
+                                handleUpdateDrug(drug.drugId, {
+                                  frequency: value,
+                                })
+                              }
                             >
                               <SelectTrigger className="w-[140px]">
                                 <SelectValue placeholder="Select" />
@@ -443,23 +522,32 @@ export function PrescriptionsTab({
                                 value={drug.duration.split(" ")[0]}
                                 onChange={(e) => {
                                   const newDuration = `${e.target.value} days`;
-                                  handleUpdateDrug(drug.drugId, { duration: newDuration });
+                                  handleUpdateDrug(drug.drugId, {
+                                    duration: newDuration,
+                                  });
                                 }}
                               />
-                              <span className="text-sm text-muted-foreground">days</span>
+                              <span className="text-sm text-muted-foreground">
+                                days
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Select
                               value={drug.route}
-                              onValueChange={(value) => handleUpdateDrug(drug.drugId, { route: value })}
+                              onValueChange={(value) =>
+                                handleUpdateDrug(drug.drugId, { route: value })
+                              }
                             >
                               <SelectTrigger className="w-[120px]">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
                                 {routes.map((route) => (
-                                  <SelectItem key={route} value={route.toLowerCase()}>
+                                  <SelectItem
+                                    key={route}
+                                    value={route.toLowerCase()}
+                                  >
                                     {route}
                                   </SelectItem>
                                 ))}
@@ -475,7 +563,9 @@ export function PrescriptionsTab({
                               className="w-[80px]"
                             />
                           </TableCell>
-                          <TableCell>{formatCurrency(drug.salePricePerUnit)}</TableCell>
+                          <TableCell>
+                            {formatCurrency(drug.salePricePerUnit)}
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
@@ -510,9 +600,12 @@ export function PrescriptionsTab({
                             Total Items: {selectedDrugs.length}
                           </div>
                           <div className="text-lg font-semibold">
-                            Total: {formatCurrency(
+                            Total:{" "}
+                            {formatCurrency(
                               selectedDrugs.reduce((total, drug) => {
-                                return total + (drug.salePricePerUnit * drug.quantity);
+                                return (
+                                  total + drug.salePricePerUnit * drug.quantity
+                                );
                               }, 0)
                             )}
                           </div>
@@ -523,7 +616,10 @@ export function PrescriptionsTab({
                         <Button variant="outline" onClick={clearSelectedDrugs}>
                           Clear
                         </Button>
-                        <Button onClick={handleSave} disabled={selectedDrugs.length === 0}>
+                        <Button
+                          onClick={handleSave}
+                          disabled={selectedDrugs.length === 0}
+                        >
                           Save Prescription
                         </Button>
                       </div>
@@ -534,7 +630,10 @@ export function PrescriptionsTab({
             )}
 
             {/* Confirmation Dialog */}
-            <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+            <AlertDialog
+              open={showConfirmation}
+              onOpenChange={setShowConfirmation}
+            >
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Save Prescription</AlertDialogTitle>
@@ -544,7 +643,9 @@ export function PrescriptionsTab({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmSave}>Save</AlertDialogAction>
+                  <AlertDialogAction onClick={confirmSave}>
+                    Save
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -553,4 +654,4 @@ export function PrescriptionsTab({
       </CardContent>
     </Card>
   );
-} 
+}

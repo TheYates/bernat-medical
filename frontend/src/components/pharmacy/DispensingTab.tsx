@@ -37,8 +37,9 @@ import { PatientDetails } from "@/components/shared/patient-details";
 import { Users2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Patient } from "@/types/patient";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { Loader2 } from "lucide-react";
+import { PaymentDialog } from "@/components/shared/payment-dialog";
 
 interface Prescription {
   id: string;
@@ -58,6 +59,10 @@ interface Prescription {
   payments?: Array<{ method: string }>;
   status?: string;
   createdAt: string;
+  dispensedBy?: {
+    id: number;
+    fullName: string;
+  };
 }
 
 const formSchema = z.object({
@@ -102,27 +107,51 @@ export function DispensingTab() {
     .reduce((sum, p) => sum + p.drug.salePricePerUnit * p.quantity, 0);
 
   const onClinicIdChange = async (value: string) => {
-    if (!value || value.length < 3) {
+    if (!value || value.length < 7) {
       setPatient(null);
       setPrescriptions([]);
+      setPrescriptionHistory([]);
       return;
     }
 
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
-      fetchPrescriptions(response.data.id);
+
+      await Promise.all([
+        fetchPrescriptions(response.data.id),
+        fetchPrescriptionHistory(response.data.id),
+      ]);
     } catch (error) {
-      toast.error("Failed to fetch patient details");
+      if (value.length >= 7) {
+        setPatient(null);
+        setPrescriptions([]);
+        setPrescriptionHistory([]);
+        toast.error("Patient not found");
+      }
     }
   };
 
-  const fetchPrescriptions = async (patientId: string) => {
+  const fetchPrescriptions = async (patientId: number) => {
     try {
       const response = await api.get(`/prescriptions/${patientId}/pending`);
       setPrescriptions(response.data);
     } catch (error) {
       toast.error("Failed to fetch prescriptions");
+    }
+  };
+
+  const fetchPrescriptionHistory = async (patientId: number) => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await api.get(
+        `/pharmacy/prescriptions/history/${patientId}`
+      );
+      setPrescriptionHistory(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch prescription history");
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -165,56 +194,30 @@ export function DispensingTab() {
     setShowPaymentDialog(true);
   };
 
-  const handlePaymentSubmit = async () => {
-    const totalPaid = Object.values(paymentAmounts).reduce(
-      (sum, amount) => sum + amount,
-      0
-    );
-
-    if (Math.abs(totalPaid - totalAmount) > 0.01) {
-      toast.error("Total payment amount must equal the total price");
-      return;
-    }
-
+  const handlePaymentSubmit = async (paymentData: {
+    methods: string[];
+    amounts: Record<string, number>;
+  }) => {
     try {
-      const selectedPrescriptions = prescriptions.filter((p) =>
-        selectedItems.includes(p.id)
-      );
-
       await api.post("/pharmacy/prescriptions/dispense", {
-        items: selectedPrescriptions.map((p) => ({
-          prescriptionId: p.id,
-          drugId: p.drug.id,
-          quantity: p.quantity,
-          price: p.drug.salePricePerUnit,
-        })),
-        payments: Object.entries(paymentAmounts).map(([method, amount]) => ({
+        prescriptionIds: selectedItems,
+        payments: paymentData.methods.map((method) => ({
           method,
-          amount,
+          amount: paymentData.amounts[method],
         })),
-        totalAmount,
       });
 
-      toast.success("Items dispensed successfully");
+      toast.success("Prescriptions dispensed successfully");
       setShowPaymentDialog(false);
       setSelectedItems([]);
-      setSelectedPaymentMethods([]);
-      setPaymentAmounts({});
 
-      // Refresh data
+      // Refresh prescriptions
       if (patient) {
-        fetchPrescriptions(patient.id.toString());
+        await fetchPrescriptions(patient.id);
+        await fetchPrescriptionHistory(patient.id);
       }
-
-      // Refresh waiting list
-      const response = await api.get("/pharmacy/prescriptions/waiting-list");
-      setWaitingList(response.data);
-
-      // Emit an event to refresh inventory
-      const event = new CustomEvent("inventory-updated");
-      window.dispatchEvent(event);
     } catch (error) {
-      toast.error("Failed to process dispensing");
+      toast.error("Failed to dispense prescriptions");
     }
   };
 
@@ -231,192 +234,186 @@ export function DispensingTab() {
     fetchWaitingList();
   }, []);
 
-  useEffect(() => {
-    const fetchPrescriptionHistory = async () => {
-      setIsLoadingHistory(true);
-      try {
-        const response = await api.get("/pharmacy/prescriptions/history");
-        setPrescriptionHistory(response.data);
-      } catch (error) {
-        toast.error("Failed to fetch prescription history");
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    };
-
-    fetchPrescriptionHistory();
-  }, []);
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-";
+    try {
+      return format(parseISO(dateString), "dd/MM/yyyy hh:mm a");
+    } catch (error) {
+      return "-";
+    }
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-[960px] mx-auto">
       <Card>
-        <CardContent className="p-6">
-          {showHistory ? (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-semibold">Dispensing History</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Past dispensing records
-                  </p>
-                </div>
-                <Button variant="ghost" onClick={() => setShowHistory(false)}>
-                  ← Back to Dispensing
-                </Button>
-              </div>
+        <CardContent className="p-3">
+          <Form {...form}>
+            <div className="flex justify-between items-end mb-6">
+              <FormField
+                control={form.control}
+                name="clinicId"
+                render={({ field }) => (
+                  <FormItem className="w-[200px]">
+                    <FormLabel>Clinic ID</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="BP24/0001"
+                        className="uppercase"
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase();
+                          field.onChange(value);
+                          onClinicIdChange(value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Drug</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingHistory ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center h-24">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
-                  ) : prescriptionHistory.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center h-24 text-muted-foreground"
-                      >
-                        No dispensing history found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    prescriptionHistory.map((prescription) => (
-                      <TableRow key={prescription.id}>
-                        <TableCell>
-                          {format(
-                            new Date(prescription.createdAt),
-                            "dd MMM yyyy"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {prescription.drug.genericName}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {prescription.drug.strength}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{prescription.quantity}</TableCell>
-                        <TableCell>
-                          {formatCurrency(
-                            prescription.drug.salePricePerUnit *
-                              prescription.quantity
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {prescription.payments
-                            ?.map((p) => p.method)
-                            .join(", ") || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              prescription.status === "dispensed"
-                                ? "success"
-                                : "secondary"
-                            }
-                          >
-                            {prescription.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </>
-          ) : (
-            <>
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    Dispense Medications
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Process prescriptions and payments
-                  </p>
-                </div>
-                <Button variant="outline" onClick={() => setShowHistory(true)}>
-                  View History
-                  {prescriptionHistory.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {prescriptionHistory.length}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowWaitingList(true)}
+              >
+                <Users2 className="h-4 w-4 mr-2" />
+                Waiting List
+                {waitingList.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {waitingList.length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
+          </Form>
 
-              <Form {...form}>
-                <form
-                  className="space-y-6"
-                  onSubmit={(e) => e.preventDefault()}
-                >
-                  <div className="flex justify-between items-end">
-                    <FormField
-                      control={form.control}
-                      name="clinicId"
-                      render={({ field }) => (
-                        <FormItem className="w-[200px]">
-                          <FormLabel className="text-sm">Clinic ID</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="BP24/0001"
-                              className="h-10 text-sm uppercase"
-                              onChange={(e) => {
-                                const value = e.target.value.toUpperCase();
-                                field.onChange(value);
-                                onClinicIdChange(value);
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+          <div className="mb-6">
+            <PatientDetails patient={patient} />
+          </div>
 
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                PRESCRIPTION DETAILS
+              </span>
+            </div>
+          </div>
+
+          <Card className="border rounded-lg">
+            <CardContent className="p-6">
+              {showHistory ? (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-semibold">Prescription History</h3>
                     <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowWaitingList(true)}
-                      className="h-10"
+                      variant="ghost"
+                      onClick={() => setShowHistory(false)}
                     >
-                      <Users2 className="h-4 w-4 mr-2" />
-                      Waiting List
-                      {waitingList.length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {waitingList.length}
-                        </Badge>
-                      )}
+                      ← Back to Prescriptions
                     </Button>
                   </div>
 
-                  <PatientDetails patient={patient} />
-
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Drug</TableHead>
+                        <TableHead>Dosage</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Payment</TableHead>
+                        <TableHead>Dispensed By</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoadingHistory ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                          </TableCell>
+                        </TableRow>
+                      ) : prescriptionHistory.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center h-24 text-muted-foreground"
+                          >
+                            No prescription history found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        prescriptionHistory.map((prescription) => (
+                          <TableRow key={prescription.id}>
+                            <TableCell>
+                              {formatDate(prescription.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">
+                                  {prescription.drug?.genericName || "N/A"}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {prescription.drug?.strength || "N/A"}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {prescription.dosage} • {prescription.frequency}
+                            </TableCell>
+                            <TableCell>{prescription.quantity}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="flex gap-1">
+                                  {prescription.payment_methods?.map(
+                                    (method: string) => (
+                                      <Badge
+                                        key={method}
+                                        variant="secondary"
+                                        className="capitalize"
+                                      >
+                                        {method}
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
+                                {prescription.total_amount && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatCurrency(prescription.total_amount)}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {prescription.dispensed_by || "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="font-semibold">Dispense Prescriptions</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Select prescriptions to dispense
+                      </p>
                     </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        Prescription Details
-                      </span>
-                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowHistory(true)}
+                    >
+                      View History
+                      {patient && prescriptionHistory.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {prescriptionHistory.length}
+                        </Badge>
+                      )}
+                    </Button>
                   </div>
 
                   <Table>
@@ -496,181 +493,33 @@ export function DispensingTab() {
                   </Table>
 
                   {prescriptions.length > 0 && (
-                    <div className="flex justify-between items-center mt-6">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Total Amount
-                        </p>
-                        <p className="text-2xl font-bold">
-                          {formatCurrency(totalAmount)}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={handleDispense}
-                        disabled={!selectedItems.length}
-                        size="lg"
-                        className="px-6"
-                      >
-                        Dispense Selected
-                      </Button>
+                    <div className="flex justify-end mt-6">
+                      <Button onClick={handleDispense}>Process Payment</Button>
                     </div>
                   )}
-                </form>
-              </Form>
-            </>
-          )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
 
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Payment Details</DialogTitle>
-            <DialogDescription>
-              Total Amount: {formatCurrency(totalAmount)}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-4 gap-4">
-            {paymentMethods.map((method) => (
-              <div
-                key={method.id}
-                className={cn(
-                  "flex flex-col items-center justify-center p-6 border rounded-lg cursor-pointer transition-colors",
-                  selectedPaymentMethods.includes(method.id)
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                )}
-                onClick={() => handlePaymentMethodChange(method.id)}
-              >
-                {method.id === "card" && (
-                  <svg
-                    className="w-8 h-8 mb-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <path d="M3 10H21" />
-                    <path d="M7 15H9" />
-                  </svg>
-                )}
-                {method.id === "mobile" && (
-                  <svg
-                    className="w-8 h-8 mb-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect x="7" y="3" width="10" height="18" rx="2" />
-                    <path d="M12 18h.01" />
-                    <path d="M11 3h2" />
-                  </svg>
-                )}
-                {method.id === "cash" && (
-                  <svg
-                    className="w-8 h-8 mb-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="8" />
-                    <path d="M12 8v8" />
-                    <path d="M15 12H9" />
-                  </svg>
-                )}
-                {method.id === "insurance" && (
-                  <svg
-                    className="w-8 h-8 mb-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M12 2L3 7v9c0 4.97 3.588 8.413 9 11 5.412-2.587 9-6.03 9-11V7l-9-5z" />
-                    <path d="M9 12l2 2 4-4" />
-                  </svg>
-                )}
-                <span className="text-sm font-medium">{method.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {selectedPaymentMethods.length > 1 && (
-            <div className="mt-6">
-              <div className="flex items-center gap-4">
-                {selectedPaymentMethods.map((method) => (
-                  <div key={method} className="flex-1">
-                    <label className="text-sm font-medium mb-2 block">
-                      {paymentMethods.find((m) => m.id === method)?.label}
-                    </label>
-                    <Input
-                      type="number"
-                      value={paymentAmounts[method] || ""}
-                      onChange={(e) =>
-                        handlePaymentAmountChange(method, e.target.value)
-                      }
-                      placeholder="Enter amount"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="text-sm text-muted-foreground mt-2">
-                Remaining:{" "}
-                {formatCurrency(
-                  totalAmount -
-                    Object.values(paymentAmounts).reduce(
-                      (sum, amount) => sum + amount,
-                      0
-                    )
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6">
-            <h4 className="text-sm font-medium mb-3">Prescription Summary</h4>
-            <div className="border rounded-lg divide-y">
-              {prescriptions
-                .filter((p) => selectedItems.includes(p.id))
-                .map((prescription) => (
-                  <div key={prescription.id} className="p-3">
-                    <div className="font-medium">
-                      {prescription.drug.genericName}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {prescription.drug.strength} • {prescription.quantity}{" "}
-                      units •
-                      {formatCurrency(
-                        prescription.drug.salePricePerUnit *
-                          prescription.quantity
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowPaymentDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePaymentSubmit}
-              disabled={!selectedPaymentMethods.length}
-            >
-              Complete Payment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PaymentDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        totalAmount={totalAmount}
+        onSubmit={handlePaymentSubmit}
+        summary={{
+          title: "Prescription Items",
+          items: prescriptions
+            .filter((p) => selectedItems.includes(p.id))
+            .map((p) => ({
+              name: p.drug.genericName,
+              quantity: p.quantity,
+              amount: p.drug.salePricePerUnit * p.quantity,
+            })),
+        }}
+      />
 
       <Dialog open={showWaitingList} onOpenChange={setShowWaitingList}>
         <DialogContent>

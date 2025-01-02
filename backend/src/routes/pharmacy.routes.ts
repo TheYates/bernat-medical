@@ -1,22 +1,23 @@
-import express from 'express';
-import { authenticate } from '../middleware/auth';
-import { 
-  getPendingPrescriptions,
-  searchDrugs,
-  createSale,
-  getWaitingList
-} from '../controllers/pharmacy.controller';
-import { dispense } from '../controllers/prescription.controller';
+import { Router } from "express";
+import { PharmacyController } from "../controllers/pharmacy.controller";
+import { authenticate } from "../middleware/auth";
 
-const router = express.Router();
+const router = Router();
 
-// Dispensing routes
-router.get('/prescriptions/:patientId/pending', authenticate, getPendingPrescriptions);
-router.post('/prescriptions/dispense', authenticate, dispense);
-router.get('/prescriptions/waiting-list', authenticate, getWaitingList);
+router.post(
+  "/prescriptions/dispense",
+  authenticate,
+  PharmacyController.dispensePrescriptions
+);
+router.get(
+  "/prescriptions/waiting-list",
+  authenticate,
+  PharmacyController.getWaitingList
+);
+router.get(
+  "/prescriptions/history/:patientId",
+  authenticate,
+  PharmacyController.getPrescriptionHistory
+);
 
-// POS routes
-router.get('/drugs/search', authenticate, searchDrugs);
-router.post('/sales', authenticate, createSale);
-
-export default router; 
+export default router;

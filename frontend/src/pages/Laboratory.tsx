@@ -1,25 +1,58 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { format } from 'date-fns';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users2, Trash2, FileText, Loader2 } from 'lucide-react';
-import { calculateAge, formatCurrency } from '@/lib/utils';
-import { toast } from 'sonner';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { api } from '@/lib/api';
-import { labWaitingListService, type LabWaitingListItem } from '@/services/lab-waiting-list.service';
-import { Investigation } from '@/services/investigations.service';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { format } from "date-fns";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Users2, Trash2, FileText, Loader2 } from "lucide-react";
+import { calculateAge, formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { api } from "@/lib/api";
+import {
+  labWaitingListService,
+  type LabWaitingListItem,
+} from "@/services/lab-waiting-list.service";
+import { Investigation } from "@/services/investigations.service";
 
 interface Patient {
   id: string;
@@ -32,7 +65,7 @@ interface Patient {
 }
 
 const formSchema = z.object({
-  clinicId: z.string().min(1, 'Clinic ID is required'),
+  clinicId: z.string().min(1, "Clinic ID is required"),
 });
 
 export function LaboratoryPage() {
@@ -40,22 +73,28 @@ export function LaboratoryPage() {
   const [waitingList, setWaitingList] = useState<LabWaitingListItem[]>([]);
   const [showWaitingList, setShowWaitingList] = useState(false);
   const [isLoadingWaitingList, setIsLoadingWaitingList] = useState(false);
-  const [patientInvestigations, setPatientInvestigations] = useState<Investigation[]>([]);
+  const [patientInvestigations, setPatientInvestigations] = useState<
+    Investigation[]
+  >([]);
   const [isLoadingPatientData, setIsLoadingPatientData] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [showResultDetails, setShowResultDetails] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedInvestigation, setSelectedInvestigation] = useState<Investigation | null>(null);
-  const [selectedResult, setSelectedResult] = useState<Investigation | null>(null);
-  const [result, setResult] = useState('');
+  const [selectedInvestigation, setSelectedInvestigation] =
+    useState<Investigation | null>(null);
+  const [selectedResult, setSelectedResult] = useState<Investigation | null>(
+    null
+  );
+  const [result, setResult] = useState("");
   const [resultFile, setResultFile] = useState<File | null>(null);
-  const [deleteReason, setDeleteReason] = useState('');
-  const [investigationToDelete, setInvestigationToDelete] = useState<Investigation | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [investigationToDelete, setInvestigationToDelete] =
+    useState<Investigation | null>(null);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      clinicId: '',
+      clinicId: "",
     },
   });
 
@@ -64,7 +103,7 @@ export function LaboratoryPage() {
       setPatient(null);
       return;
     }
-    
+
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
@@ -100,16 +139,19 @@ export function LaboratoryPage() {
 
     try {
       const formData = new FormData();
-      formData.append('result', result);
+      formData.append("result", result);
       if (resultFile) {
-        formData.append('file', resultFile);
+        formData.append("file", resultFile);
       }
 
-      await api.post(`/lab-requests/${selectedInvestigation.id}/result`, formData);
-      
+      await api.post(
+        `/lab-requests/${selectedInvestigation.id}/result`,
+        formData
+      );
+
       toast.success("Result updated successfully");
       setShowResultDialog(false);
-      setResult('');
+      setResult("");
       setResultFile(null);
       fetchPatientInvestigations(patient.id);
       fetchWaitingList();
@@ -123,12 +165,12 @@ export function LaboratoryPage() {
 
     try {
       await api.delete(`/lab-requests/${investigationToDelete.id}`, {
-        data: { reason: deleteReason }
+        data: { reason: deleteReason },
       });
-      
+
       toast.success("Investigation request deleted");
       setShowDeleteDialog(false);
-      setDeleteReason('');
+      setDeleteReason("");
       setInvestigationToDelete(null);
       fetchPatientInvestigations(patient.id);
     } catch (error) {
@@ -150,7 +192,7 @@ export function LaboratoryPage() {
 
   useEffect(() => {
     fetchWaitingList();
-    
+
     const interval = setInterval(fetchWaitingList, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -167,7 +209,7 @@ export function LaboratoryPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[900px] mx-auto">
+      <div className="max-w-[960px] mx-auto">
         <div className="mb-2">
           <h1 className="text-lg font-bold tracking-tight">Laboratory Tests</h1>
           <p className="text-sm text-muted-foreground">
@@ -222,34 +264,48 @@ export function LaboratoryPage() {
                 {/* Patient Details Grid */}
                 <div className="grid grid-cols-3 gap-2 bg-muted/30 rounded-md p-4">
                   <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">Name</label>
+                    <label className="text-sm font-medium text-foreground/70">
+                      Name
+                    </label>
                     <p className="text-lg font-medium">
-                      {patient ? `${patient.firstName} ${patient.middleName} ${patient.lastName}` : "-"}
+                      {patient
+                        ? `${patient.firstName} ${patient.middleName} ${patient.lastName}`
+                        : "-"}
                     </p>
                   </div>
 
                   <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">Age</label>
+                    <label className="text-sm font-medium text-foreground/70">
+                      Age
+                    </label>
                     <p className="text-lg font-medium">
                       {patient ? calculateAge(patient.dateOfBirth) : "-"}
                     </p>
                   </div>
 
                   <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">Gender</label>
-                    <p className="text-lg font-medium">{patient?.gender || "-"}</p>
+                    <label className="text-sm font-medium text-foreground/70">
+                      Gender
+                    </label>
+                    <p className="text-lg font-medium">
+                      {patient?.gender || "-"}
+                    </p>
                   </div>
 
                   <div className="col-span-3 grid grid-cols-2 gap-4 mt-4">
                     <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">Date</label>
+                      <label className="text-sm font-medium text-foreground/70">
+                        Date
+                      </label>
                       <p className="text-lg font-medium">
                         {format(new Date(), "EEEE, MMMM d, yyyy")}
                       </p>
                     </div>
 
                     <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">Time</label>
+                      <label className="text-sm font-medium text-foreground/70">
+                        Time
+                      </label>
                       <p className="text-lg font-medium">
                         {format(new Date(), "hh:mm a")}
                       </p>
@@ -314,11 +370,18 @@ export function LaboratoryPage() {
                             onClick={() => handleRowClick(investigation)}
                           >
                             <TableCell>
-                              {format(new Date(investigation.createdAt), "dd MMM yyyy")}
+                              {format(
+                                new Date(investigation.createdAt),
+                                "dd MMM yyyy"
+                              )}
                             </TableCell>
                             <TableCell>{investigation.service.name}</TableCell>
-                            <TableCell>{investigation.service.category}</TableCell>
-                            <TableCell>{formatCurrency(investigation.service.price)}</TableCell>
+                            <TableCell>
+                              {investigation.service.category}
+                            </TableCell>
+                            <TableCell>
+                              {formatCurrency(investigation.service.price)}
+                            </TableCell>
                             <TableCell>
                               {investigation.status !== "Pending" ? (
                                 <div className="max-w-[200px]">
@@ -328,7 +391,10 @@ export function LaboratoryPage() {
                                       title="Click to view full result"
                                     >
                                       {investigation.result.length > 50
-                                        ? `${investigation.result.substring(0, 50)}...`
+                                        ? `${investigation.result.substring(
+                                            0,
+                                            50
+                                          )}...`
                                         : investigation.result}
                                     </span>
                                   ) : (
@@ -364,7 +430,9 @@ export function LaboratoryPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={(e) => handleDelete(investigation, e)}
+                                  onClick={(e) =>
+                                    handleDelete(investigation, e)
+                                  }
                                   className="h-8 w-8 p-0"
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
@@ -386,7 +454,6 @@ export function LaboratoryPage() {
                     </TableBody>
                   </Table>
                 </div>
-
               </form>
             </Form>
           </CardContent>
@@ -449,17 +516,26 @@ export function LaboratoryPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Investigation:</span>
-                      <div className="font-medium">{selectedResult.service.name}</div>
+                      <span className="text-muted-foreground">
+                        Investigation:
+                      </span>
+                      <div className="font-medium">
+                        {selectedResult.service.name}
+                      </div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Category:</span>
-                      <div className="font-medium">{selectedResult.service.category}</div>
+                      <div className="font-medium">
+                        {selectedResult.service.category}
+                      </div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Date:</span>
                       <div className="font-medium">
-                        {format(new Date(selectedResult.createdAt), "dd MMM yyyy")}
+                        {format(
+                          new Date(selectedResult.createdAt),
+                          "dd MMM yyyy"
+                        )}
                       </div>
                     </div>
                     <div>
@@ -483,7 +559,9 @@ export function LaboratoryPage() {
                   </div>
 
                   <div className="mt-6">
-                    <span className="text-muted-foreground block mb-2">Result:</span>
+                    <span className="text-muted-foreground block mb-2">
+                      Result:
+                    </span>
                     <div className="bg-muted p-4 rounded-lg whitespace-pre-wrap">
                       {selectedResult.result}
                     </div>
@@ -492,7 +570,9 @@ export function LaboratoryPage() {
                   {selectedResult.fileUrl && (
                     <div className="mt-4 flex items-center gap-2">
                       <a
-                        href={`${import.meta.env.VITE_API_URL}${selectedResult.fileUrl}`}
+                        href={`${import.meta.env.VITE_API_URL}${
+                          selectedResult.fileUrl
+                        }`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-2"
@@ -516,12 +596,16 @@ export function LaboratoryPage() {
             <AlertDialogTitle>Delete Investigation Request</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
-                <p>Are you sure you want to delete this investigation request?</p>
+                <p>
+                  Are you sure you want to delete this investigation request?
+                </p>
 
                 {investigationToDelete && (
                   <div className="bg-muted p-4 rounded-lg space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Investigation:</span>
+                      <span className="text-muted-foreground">
+                        Investigation:
+                      </span>
                       <span className="font-medium">
                         {investigationToDelete.service.name}
                       </span>
@@ -539,9 +623,14 @@ export function LaboratoryPage() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Requested on:</span>
+                      <span className="text-muted-foreground">
+                        Requested on:
+                      </span>
                       <span className="font-medium">
-                        {format(new Date(investigationToDelete.createdAt), "dd MMM yyyy")}
+                        {format(
+                          new Date(investigationToDelete.createdAt),
+                          "dd MMM yyyy"
+                        )}
                       </span>
                     </div>
                   </div>
@@ -661,10 +750,7 @@ export function LaboratoryPage() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowWaitingList(false)}
-            >
+            <Button variant="outline" onClick={() => setShowWaitingList(false)}>
               Close
             </Button>
           </DialogFooter>
@@ -672,4 +758,4 @@ export function LaboratoryPage() {
       </Dialog>
     </DashboardLayout>
   );
-} 
+}

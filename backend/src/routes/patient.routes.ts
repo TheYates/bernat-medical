@@ -1,15 +1,17 @@
-import express from 'express';
-import { 
-  registerPatient, 
+import express from "express";
+import {
+  registerPatient,
   getPatientByClinicId,
-  searchPatients 
-} from '../controllers/patient.controller';
-import { authenticate } from '../middleware/auth';
+  searchPatients,
+  getLastPatientId,
+} from "../controllers/patient.controller";
+import { authenticate } from "../middleware/auth";
 
 const router = express.Router();
 
-router.post('/register', authenticate, registerPatient);
-router.get('/search', authenticate, searchPatients);
-router.get('/:clinicId', authenticate, getPatientByClinicId);
+router.get("/last-id", getLastPatientId);
+router.get("/search", authenticate, searchPatients);
+router.post("/register", authenticate, registerPatient);
+router.get("/:clinicId", authenticate, getPatientByClinicId);
 
-export default router; 
+export default router;

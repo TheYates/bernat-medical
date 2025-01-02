@@ -1,36 +1,59 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { api } from '@/lib/api';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users2 } from 'lucide-react';
-import { consultationService } from '@/services/consultation.service';
-import { waitingListService, WaitingListItem } from '@/services/waiting-list.service';
-import { format } from 'date-fns';
-import { calculateAge } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Patient } from '@/types/patient';
+import { api } from "@/lib/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Users2 } from "lucide-react";
+import { consultationService } from "@/services/consultation.service";
+import {
+  waitingListService,
+  WaitingListItem,
+} from "@/services/waiting-list.service";
+import { format } from "date-fns";
+import { calculateAge } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Patient } from "@/types/patient";
 
 // Import tab components
-import { ComplaintsTab } from '@/components/consultation/ComplaintsTab';
-import { ClinicalNotesTab } from '@/components/consultation/ClinicalNotesTab';
-import { DiagnosisTab } from '@/components/consultation/DiagnosisTab';
-import { TreatmentTab } from '@/components/consultation/TreatmentTab';
-import { VitalSignsTab } from '@/components/consultation/VitalSignsTab';
-import { InvestigationsTab } from '@/components/consultation/InvestigationsTab';
-import { PrescriptionsTab } from '@/components/consultation/PrescriptionsTab';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PatientDetails } from '@/components/shared/patient-details';
-import { TodayVitalSignsDisplay } from '@/components/consultation/components/today-vital-signs-display';
-import { ConsultationTabs } from '@/components/consultation/ConsultationTabs';
+import { ComplaintsTab } from "@/components/consultation/ComplaintsTab";
+import { ClinicalNotesTab } from "@/components/consultation/ClinicalNotesTab";
+import { DiagnosisTab } from "@/components/consultation/DiagnosisTab";
+import { TreatmentTab } from "@/components/consultation/TreatmentTab";
+import { VitalSignsTab } from "@/components/consultation/VitalSignsTab";
+import { InvestigationsTab } from "@/components/consultation/InvestigationsTab";
+import { PrescriptionsTab } from "@/components/consultation/PrescriptionsTab";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { PatientDetails } from "@/components/shared/patient-details";
+import { TodayVitalSignsDisplay } from "@/components/consultation/components/today-vital-signs-display";
+import { ConsultationTabs } from "@/components/consultation/ConsultationTabs";
 
 interface PrescriptionDrug {
   id: string;
@@ -43,35 +66,33 @@ interface PrescriptionDrug {
 }
 
 const consultationSchema = z.object({
-  clinicId: z.string().min(1, 'Clinic ID is required'),
-  complaints: z.string().min(1, 'Complaints are required'),
+  clinicId: z.string().min(1, "Clinic ID is required"),
+  complaints: z.string().min(1, "Complaints are required"),
   clinicalNotes: z.string().optional(),
-  diagnosis: z.string().min(1, 'Diagnosis is required'),
-  treatment: z.string().min(1, 'Treatment plan is required'),
+  diagnosis: z.string().min(1, "Diagnosis is required"),
+  treatment: z.string().min(1, "Treatment plan is required"),
   treatmentNotes: z.string().optional(),
   prescriptions: z.array(z.any()).optional(),
 });
 
 export function ConsultationPage() {
-  // console.log('Consultation page rendered');
-  
   const [showPreview, setShowPreview] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [showWaitingList, setShowWaitingList] = useState(false);
   const [waitingList, setWaitingList] = useState<WaitingListItem[]>([]);
   const [isLoadingWaitingList, setIsLoadingWaitingList] = useState(false);
   const [selectedDrugs, setSelectedDrugs] = useState<PrescriptionDrug[]>([]);
-  const [activeTab, setActiveTab] = useState('prescriptions');
+  const [activeTab, setActiveTab] = useState("prescriptions");
   const [waitingListCount, setWaitingListCount] = useState(0);
 
   const form = useForm({
     resolver: zodResolver(consultationSchema),
     defaultValues: {
-      clinicId: '',
-      complaints: '',
-      clinicalNotes: '',
-      diagnosis: '',
-      treatment: '',
+      clinicId: "",
+      complaints: "",
+      clinicalNotes: "",
+      diagnosis: "",
+      treatment: "",
     },
   });
 
@@ -80,7 +101,7 @@ export function ConsultationPage() {
       setPatient(null);
       return;
     }
-    
+
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
@@ -103,8 +124,8 @@ export function ConsultationPage() {
         description: `Consultation for ${patient.firstName} ${patient.lastName} has been recorded.`,
         action: {
           label: "View History",
-          onClick: () => setActiveTab("history")
-        }
+          onClick: () => setActiveTab("history"),
+        },
       });
 
       // Reset form and state
@@ -114,7 +135,8 @@ export function ConsultationPage() {
       setShowPreview(false);
     } catch (error) {
       toast.error("Failed to save consultation", {
-        description: "There was an error saving the consultation. Please try again."
+        description:
+          "There was an error saving the consultation. Please try again.",
       });
     }
   };
@@ -135,17 +157,17 @@ export function ConsultationPage() {
   const handleSelectPatient = async (request: WaitingListItem) => {
     try {
       await waitingListService.updateStatus(request.id);
-      
+
       // Set clinic ID in form and trigger input change
       const clinicId = request.patient.clinicId;
       form.setValue("clinicId", clinicId);
-      
+
       // Get patient details like in VitalSigns.tsx
       if (clinicId.length >= 7) {
         const patientResponse = await api.get(`/patients/${clinicId}`);
         setPatient(patientResponse.data);
       }
-      
+
       setShowWaitingList(false);
       fetchWaitingList();
     } catch (error) {
@@ -161,11 +183,9 @@ export function ConsultationPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // console.log('Active tab:', activeTab);
-
   return (
     <DashboardLayout>
-      <div className="max-w-[900px] mx-auto">
+      <div className="max-w-[1100px] mx-auto">
         <div className="mb-2">
           <h1 className="text-lg font-bold tracking-tight">Consultation</h1>
           <p className="text-sm text-muted-foreground">
@@ -176,7 +196,10 @@ export function ConsultationPage() {
         <Card>
           <CardContent className="p-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
+              <form
+                onSubmit={form.handleSubmit(handleSubmit)}
+                className="space-y-3"
+              >
                 {/* Patient Search Section */}
                 <div className="flex justify-between items-end">
                   <FormField
@@ -220,7 +243,9 @@ export function ConsultationPage() {
 
                 {/* Today's Vital Signs */}
                 <div className="mb-4">
-                  <TodayVitalSignsDisplay vitalSigns={patient?.todayVitalSigns} />
+                  <TodayVitalSignsDisplay
+                    vitalSigns={patient?.todayVitalSigns}
+                  />
                 </div>
 
                 {/* Consultation Tabs */}
@@ -231,8 +256,12 @@ export function ConsultationPage() {
                     <TabsTrigger value="diagnosis">Diagnosis</TabsTrigger>
                     <TabsTrigger value="treatment">Treatment</TabsTrigger>
                     <TabsTrigger value="vitals">Vitals</TabsTrigger>
-                    <TabsTrigger value="investigations">Investigations</TabsTrigger>
-                    <TabsTrigger value="prescriptions">Prescriptions</TabsTrigger>
+                    <TabsTrigger value="investigations">
+                      Investigations
+                    </TabsTrigger>
+                    <TabsTrigger value="prescriptions">
+                      Prescriptions
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="prescriptions">
@@ -265,9 +294,9 @@ export function ConsultationPage() {
                 </Tabs>
 
                 <div className="flex justify-end mt-6">
-                  <Button 
-                    type="button" 
-                    disabled={!patient} 
+                  <Button
+                    type="button"
+                    disabled={!patient}
                     onClick={() => setShowPreview(true)}
                   >
                     Review & Save
@@ -292,20 +321,38 @@ export function ConsultationPage() {
               <div className="grid gap-2">
                 <h4 className="font-medium">Patient Details</h4>
                 <div className="text-sm">
-                  <p><span className="font-medium">Name:</span> {patient?.firstName} {patient?.lastName}</p>
-                  <p><span className="font-medium">Clinic ID:</span> {patient?.clinicId}</p>
+                  <p>
+                    <span className="font-medium">Name:</span>{" "}
+                    {patient?.firstName} {patient?.lastName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Clinic ID:</span>{" "}
+                    {patient?.clinicId}
+                  </p>
                 </div>
               </div>
 
               <div className="grid gap-2">
                 <h4 className="font-medium">Consultation Details</h4>
                 <div className="text-sm space-y-2">
-                  <p><span className="font-medium">Complaints:</span> {form.getValues('complaints')}</p>
-                  {form.getValues('clinicalNotes') && (
-                    <p><span className="font-medium">Clinical Notes:</span> {form.getValues('clinicalNotes')}</p>
+                  <p>
+                    <span className="font-medium">Complaints:</span>{" "}
+                    {form.getValues("complaints")}
+                  </p>
+                  {form.getValues("clinicalNotes") && (
+                    <p>
+                      <span className="font-medium">Clinical Notes:</span>{" "}
+                      {form.getValues("clinicalNotes")}
+                    </p>
                   )}
-                  <p><span className="font-medium">Diagnosis:</span> {form.getValues('diagnosis')}</p>
-                  <p><span className="font-medium">Treatment Plan:</span> {form.getValues('treatment')}</p>
+                  <p>
+                    <span className="font-medium">Diagnosis:</span>{" "}
+                    {form.getValues("diagnosis")}
+                  </p>
+                  <p>
+                    <span className="font-medium">Treatment Plan:</span>{" "}
+                    {form.getValues("treatment")}
+                  </p>
                 </div>
               </div>
 
@@ -315,7 +362,8 @@ export function ConsultationPage() {
                   <div className="text-sm">
                     {selectedDrugs.map((drug, index) => (
                       <div key={drug.id} className="py-1">
-                        {index + 1}. {drug.drug.genericName} - {drug.dosage}, {drug.frequency}, {drug.duration}
+                        {index + 1}. {drug.drug.genericName} - {drug.dosage},{" "}
+                        {drug.frequency}, {drug.duration}
                       </div>
                     ))}
                   </div>
@@ -327,10 +375,12 @@ export function ConsultationPage() {
               <Button variant="outline" onClick={() => setShowPreview(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                setShowPreview(false);
-                handleSubmit(form.getValues());
-              }}>
+              <Button
+                onClick={() => {
+                  setShowPreview(false);
+                  handleSubmit(form.getValues());
+                }}
+              >
                 Confirm & Save
               </Button>
             </DialogFooter>
@@ -348,9 +398,7 @@ export function ConsultationPage() {
 
             <div className="mt-4">
               {isLoadingWaitingList ? (
-                <div className="text-center py-8">
-                  Loading waiting list...
-                </div>
+                <div className="text-center py-8">Loading waiting list...</div>
               ) : waitingList.length > 0 ? (
                 <Card>
                   <Table>
@@ -368,7 +416,9 @@ export function ConsultationPage() {
                       {waitingList.map((request) => (
                         <TableRow key={request.id}>
                           <TableCell>
-                            {request.createdAt ? format(new Date(request.createdAt), "hh:mm a") : "-"}
+                            {request.createdAt
+                              ? format(new Date(request.createdAt), "hh:mm a")
+                              : "-"}
                           </TableCell>
                           <TableCell>
                             <div>
@@ -381,7 +431,13 @@ export function ConsultationPage() {
                                 <p className="text-sm text-muted-foreground">
                                   {request.patient.clinicId}
                                 </p>
-                                <Badge variant={request.status === 'In Progress' ? 'secondary' : 'default'}>
+                                <Badge
+                                  variant={
+                                    request.status === "In Progress"
+                                      ? "secondary"
+                                      : "default"
+                                  }
+                                >
                                   {request.status}
                                 </Badge>
                               </div>
@@ -414,7 +470,10 @@ export function ConsultationPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowWaitingList(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowWaitingList(false)}
+              >
                 Close
               </Button>
             </DialogFooter>
@@ -423,4 +482,4 @@ export function ConsultationPage() {
       </div>
     </DashboardLayout>
   );
-} 
+}

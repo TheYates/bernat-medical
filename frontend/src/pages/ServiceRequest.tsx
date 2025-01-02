@@ -75,6 +75,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { PatientIdCard } from "@/components/PatientIdCard";
+import { PatientDetails } from "@/components/shared/patient-details";
 
 interface Patient {
   id: number;
@@ -387,7 +388,7 @@ export function ServiceRequest() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[900px] mx-auto">
+      <div className="max-w-[960px] mx-auto">
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">
@@ -401,20 +402,9 @@ export function ServiceRequest() {
 
         <Card>
           <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Create Service Request
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Request new service for patient
-                </p>
-              </div>
-            </div>
-
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="flex justify-between items-end">
+                <div className="flex justify-between items-end mb-6">
                   <FormField
                     control={form.control}
                     name="clinicId"
@@ -448,56 +438,8 @@ export function ServiceRequest() {
                   </Button>
                 </div>
 
-                {/* Patient Info Display */}
-                <div className="grid grid-cols-3 gap-2 bg-muted/30 rounded-md p-4">
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Name
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient
-                        ? `${patient.firstName} ${patient.middleName} ${patient.lastName}`
-                        : "-"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Age
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient ? calculateAge(patient.dateOfBirth) : "-"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Gender
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient?.gender || "-"}
-                    </p>
-                  </div>
-
-                  <div className="col-span-3 grid grid-cols-2 gap-4 mt-4">
-                    <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">
-                        Date
-                      </label>
-                      <p className="text-lg font-medium">
-                        {format(new Date(), "EEEE, MMMM d, yyyy")}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1 text-center">
-                      <label className="text-sm font-medium text-foreground/70">
-                        Time
-                      </label>
-                      <p className="text-lg font-medium">
-                        {format(new Date(), "hh:mm a")}
-                      </p>
-                    </div>
-                  </div>
+                <div className="mb-6">
+                  <PatientDetails patient={patient} />
                 </div>
 
                 {patient && (

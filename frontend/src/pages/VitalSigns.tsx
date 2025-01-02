@@ -37,8 +37,17 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Patient } from "@/types/patient";
-import { HistoryDrawer } from "@/components/shared/history-drawer";
 import { PatientDetails } from "@/components/shared/patient-details";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Form schema
 const formSchema = z.object({
@@ -100,6 +109,8 @@ export function VitalSigns() {
   >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingData, setPendingData] = useState<any>(null);
 
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
@@ -216,32 +227,47 @@ export function VitalSigns() {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     if (!patient) return;
 
-    try {
-      await api.post("/vitals", {
-        patientId: patient.id,
-        systolic: parseInt(data.systolic),
-        diastolic: parseInt(data.diastolic),
-        temperatureC: parseFloat(data.temperatureC),
-        temperatureF: parseFloat(data.temperatureF),
-        pulseRate: parseInt(data.pulseRate),
-        respiratoryRate: parseInt(data.respiratoryRate),
-        weight: data.weight ? parseFloat(data.weight) : null,
-        height: data.height ? parseFloat(data.height) : null,
-        oxygenSaturation: data.oxygenSaturation
-          ? parseInt(data.oxygenSaturation)
-          : null,
-        fbs: data.fbs ? parseFloat(data.fbs) : null,
-        rbs: data.rbs ? parseFloat(data.rbs) : null,
-        fhr: data.fhr ? parseInt(data.fhr) : null,
-      });
+    // Store the form data and show confirmation dialog
+    setPendingData({
+      patientId: patient.id,
+      systolic: parseInt(data.systolic),
+      diastolic: parseInt(data.diastolic),
+      temperatureC: parseFloat(data.temperatureC),
+      temperatureF: parseFloat(data.temperatureF),
+      pulseRate: parseInt(data.pulseRate),
+      respiratoryRate: parseInt(data.respiratoryRate),
+      weight: data.weight ? parseFloat(data.weight) : null,
+      height: data.height ? parseFloat(data.height) : null,
+      oxygenSaturation: data.oxygenSaturation
+        ? parseInt(data.oxygenSaturation)
+        : null,
+      fbs: data.fbs ? parseFloat(data.fbs) : null,
+      rbs: data.rbs ? parseFloat(data.rbs) : null,
+      fhr: data.fhr ? parseInt(data.fhr) : null,
+    });
+    setShowConfirmDialog(true);
+  };
 
+  // Add this new function to handle the actual submission
+  const handleConfirmedSubmit = async () => {
+    if (!patient) return;
+
+    try {
+      await api.post("/vitals", pendingData);
       toast.success("Vital signs recorded successfully");
       form.reset();
       setBMI("");
+      setShowConfirmDialog(false);
 
       // Refresh history
       const historyResponse = await api.get(`/vitals/${patient.id}`);
       setVitalSignsHistory(historyResponse.data);
+
+      // Refresh waiting list if it's open
+      if (showWaitingList) {
+        const waitingResponse = await api.get("/vitals/waiting-list");
+        setWaitingList(waitingResponse.data);
+      }
     } catch (error) {
       console.error("Error recording vital signs:", error);
       toast.error("Failed to record vital signs");
@@ -920,6 +946,59 @@ export function VitalSigns() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog
+          open={showConfirmDialog}
+          onOpenChange={setShowConfirmDialog}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Vital Signs Record</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to record these vital signs? Please verify
+                the values before confirming.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="text-sm">
+                <p>
+                  <strong>Blood Pressure:</strong> {pendingData?.systolic}/
+                  {pendingData?.diastolic} mmHg
+                </p>
+                <p>
+                  <strong>Temperature:</strong> {pendingData?.temperatureC}°C
+                </p>
+                <p>
+                  <strong>Pulse Rate:</strong> {pendingData?.pulseRate} bpm
+                </p>
+                <p>
+                  <strong>Respiratory Rate:</strong>{" "}
+                  {pendingData?.respiratoryRate} bpm
+                </p>
+              </div>
+              <div className="text-sm">
+                <p>
+                  <strong>Weight:</strong> {pendingData?.weight || "-"} kg
+                </p>
+                <p>
+                  <strong>Height:</strong> {pendingData?.height || "-"} cm
+                </p>
+                <p>
+                  <strong>SpO2:</strong> {pendingData?.oxygenSaturation || "-"}%
+                </p>
+                <p>
+                  <strong>FBS:</strong> {pendingData?.fbs || "-"} mmol/L
+                </p>
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmedSubmit}>
+                Confirm Record
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 
 export interface VitalSigns {
   id: string;
@@ -7,11 +7,13 @@ export interface VitalSigns {
   systolic: number;
   diastolic: number;
   pulseRate: number;
+  respiratoryRate: number;
   oxygenSaturation: number;
   weight: number;
   height: number;
   fbs?: number;
   rbs?: number;
+  fhr?: number;
   recordedBy: {
     firstName: string;
     lastName: string;
@@ -28,5 +30,5 @@ export const vitalSignsService = {
   getToday: async (patientId: string) => {
     const response = await api.get(`/vitals/${patientId}/today`);
     return response.data;
-  }
-}; 
+  },
+};

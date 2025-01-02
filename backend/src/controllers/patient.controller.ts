@@ -131,32 +131,59 @@ export const getPatientByClinicId = async (req: Request, res: Response) => {
   try {
     const clinicId = req.params.clinicId;
 
-    const [patients] = (await pool.execute(
-      `SELECT 
-        id, clinic_id, first_name, middle_name, last_name,
-        date_of_birth, gender, contact, marital_status, residence
-      FROM patients 
-      WHERE clinic_id = ?`,
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT p.*,
+        (SELECT JSON_OBJECT(
+          'temperatureC', v.temperature_c,
+          'temperatureF', v.temperature_f,
+          'systolic', v.systolic,
+          'diastolic', v.diastolic,
+          'pulseRate', v.pulse_rate,
+          'respiratoryRate', v.respiratory_rate,
+          'oxygenSaturation', v.oxygen_saturation,
+          'weight', v.weight,
+          'height', v.height,
+          'fbs', v.fbs,
+          'rbs', v.rbs,
+          'fhr', v.fhr,
+          'createdAt', v.created_at,
+          'recordedBy', (
+            SELECT JSON_OBJECT(
+              'id', u.id,
+              'fullName', u.full_name
+            )
+            FROM users u 
+            WHERE u.id = v.recorded_by
+          )
+        )
+        FROM vital_signs v 
+        WHERE v.patient_id = p.id 
+        AND DATE(v.created_at) = CURDATE()
+        ORDER BY v.created_at DESC 
+        LIMIT 1) as todayVitalSigns
+      FROM patients p 
+      WHERE p.clinic_id = ?`,
       [clinicId]
-    )) as [RowDataPacket[], any];
+    );
 
-    if (patients.length === 0) {
+    if (!rows.length) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    const patient = patients[0];
+    const patientData = rows[0];
 
     res.json({
-      id: patient.id,
-      clinicId: patient.clinic_id,
-      firstName: patient.first_name,
-      middleName: patient.middle_name,
-      lastName: patient.last_name,
-      dateOfBirth: patient.date_of_birth,
-      gender: patient.gender,
-      contact: patient.contact,
-      maritalStatus: patient.marital_status,
-      residence: patient.residence,
+      id: patientData.id,
+      clinicId: patientData.clinic_id,
+      firstName: patientData.first_name,
+      middleName: patientData.middle_name,
+      lastName: patientData.last_name,
+      dateOfBirth: patientData.date_of_birth,
+      gender: patientData.gender,
+      contact: patientData.contact,
+      maritalStatus: patientData.marital_status,
+      residence: patientData.residence,
+      todayVitalSigns: patientData.todayVitalSigns,
     });
   } catch (error) {
     console.error("Error fetching patient:", error);

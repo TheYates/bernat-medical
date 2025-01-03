@@ -1,6 +1,5 @@
 import { VitalSigns } from "@/services/vital-signs.service";
 import { calculateBMI } from "@/lib/utils";
-import { format } from "date-fns";
 
 interface TodayVitalSignsDisplayProps {
   vitalSigns?: VitalSigns | null;

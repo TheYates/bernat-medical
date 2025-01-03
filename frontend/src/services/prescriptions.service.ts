@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 
 export interface Drug {
   id: string;
@@ -30,7 +30,7 @@ export interface PrescriptionItem {
 export interface Prescription {
   id: string;
   createdAt: string;
-  status: 'pending' | 'dispensed';
+  status: "pending" | "dispensed";
   drug: {
     id: string;
     genericName: string;
@@ -49,22 +49,48 @@ export const prescriptionsService = {
     return response.data;
   },
 
-  create: async (patientId: string, data: {
-    items: Array<{
-      drugId: string;
-      dosage: string;
-      frequency: string;
-      duration: string;
-      route: string;
-      quantity: number;
-    }>;
-    instructions?: string;
-  }) => {
+  create: async (
+    patientId: string,
+    data: {
+      items: Array<{
+        drugId: string;
+        dosage: string;
+        frequency: string;
+        duration: string;
+        route: string;
+        quantity: number;
+      }>;
+      instructions?: string;
+    }
+  ) => {
     const response = await api.post(`/prescriptions/${patientId}`, data);
     return response.data;
   },
 
   delete: async (prescriptionId: string) => {
     await api.delete(`/prescriptions/${prescriptionId}`);
-  }
-}; 
+  },
+
+  getDrugs: async (): Promise<Drug[]> => {
+    const response = await api.get("/drugs");
+    return response.data;
+  },
+
+  createPrescriptionOnly: async (
+    patientId: string,
+    data: {
+      items: Array<{
+        drugId: string;
+        dosage: string;
+        frequency: string;
+        duration: string;
+        route: string;
+        quantity: number;
+      }>;
+      instructions?: string;
+    }
+  ) => {
+    const response = await api.post(`/prescriptions/${patientId}/only`, data);
+    return response.data;
+  },
+};

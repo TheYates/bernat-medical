@@ -11,9 +11,10 @@ import { drugsService } from "@/services/drugs.service";
 
 interface ConsultationTabsProps {
   patient: any;
+  form: any;
 }
 
-export function ConsultationTabs({ patient }: ConsultationTabsProps) {
+export function ConsultationTabs({ patient, form }: ConsultationTabsProps) {
   // Prescription state
   const [selectedDrugs, setSelectedDrugs] = useState<PrescriptionItem[]>([]);
   const [prescriptionHistory, setPrescriptionHistory] = useState([]);
@@ -103,9 +104,8 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
   // Save prescription
   const handleSavePrescription = useCallback(async () => {
     if (!patient?.id) return;
-
     try {
-      await prescriptionsService.create(patient.id, {
+      await prescriptionsService.createPrescriptionOnly(patient.id, {
         items: selectedDrugs.map((drug) => ({
           drugId: drug.drugId,
           dosage: drug.dosage,
@@ -116,7 +116,6 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
         })),
         instructions,
       });
-
       // Reset form
       setSelectedDrugs([]);
       setInstructions("");
@@ -146,13 +145,14 @@ export function ConsultationTabs({ patient }: ConsultationTabsProps) {
   return (
     <div className="space-y-4">
       <PrescriptionsTab
+        form={form}
         patient={patient}
         drugs={availableDrugs}
         selectedDrugs={selectedDrugs}
         onAddDrug={handleAddDrug}
         onRemoveDrug={handleRemoveDrug}
         onUpdateDrug={handleUpdateDrug}
-        onSavePrescription={handleSavePrescription}
+        onSavePrescriptions={handleSavePrescription}
         prescriptionHistory={prescriptionHistory}
         isLoadingHistory={isLoadingHistory}
         deletePrescription={handleDeletePrescription}

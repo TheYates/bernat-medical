@@ -114,11 +114,23 @@ export function ConsultationPage() {
     if (!patient?.id) return;
 
     try {
-      await consultationService.create(patient.id, {
+      // Save consultation data
+      await consultationService.create(Number(patient.id), {
         ...data,
         prescriptions: selectedDrugs,
         clinicId: patient.clinicId,
       });
+
+      // Update service request status to completed
+      if (patient?.serviceRequestId) {
+        try {
+          await api.put(`/requests/${patient.serviceRequestId}/status`, {
+            status: "Completed",
+          });
+        } catch (error) {
+          console.error("Status update error:", error);
+        }
+      }
 
       toast.success("Consultation saved successfully", {
         description: `Consultation for ${patient.firstName} ${patient.lastName} has been recorded.`,
@@ -133,6 +145,7 @@ export function ConsultationPage() {
       setPatient(null);
       setSelectedDrugs([]);
       setShowPreview(false);
+      fetchWaitingList(); // Refresh waiting list to show updated status
     } catch (error) {
       toast.error("Failed to save consultation", {
         description:
@@ -157,20 +170,25 @@ export function ConsultationPage() {
   const handleSelectPatient = async (request: WaitingListItem) => {
     try {
       await waitingListService.updateStatus(request.id);
+      console.log("Selected request:", request); // Debug log
 
-      // Set clinic ID in form and trigger input change
       const clinicId = request.patient.clinicId;
       form.setValue("clinicId", clinicId);
 
-      // Get patient details like in VitalSigns.tsx
       if (clinicId.length >= 7) {
         const patientResponse = await api.get(`/patients/${clinicId}`);
-        setPatient(patientResponse.data);
+        const patientWithRequest = {
+          ...patientResponse.data,
+          serviceRequestId: request.id,
+        };
+        console.log("Setting patient with request:", patientWithRequest); // Debug log
+        setPatient(patientWithRequest);
       }
 
       setShowWaitingList(false);
       fetchWaitingList();
     } catch (error) {
+      console.error("Select patient error:", error); // Debug log
       toast.error("Failed to select patient");
     }
   };
@@ -182,6 +200,28 @@ export function ConsultationPage() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleSavePrescriptions = async (prescriptions: any[]) => {
+    if (!patient) return;
+
+    try {
+      await api.post(`/prescriptions/${patient.id}`, {
+        items: prescriptions.map((p) => ({
+          drugId: p.drugId,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          duration: p.duration,
+          route: p.route,
+          quantity: p.quantity,
+        })),
+        instructions: prescriptions[0]?.instructions, // If you have instructions
+      });
+      toast.success("Prescriptions saved successfully");
+    } catch (error) {
+      console.error("Error saving prescriptions:", error);
+      toast.error("Failed to save prescriptions");
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -265,7 +305,11 @@ export function ConsultationPage() {
                   </TabsList>
 
                   <TabsContent value="prescriptions">
-                    <ConsultationTabs patient={patient} />
+                    <PrescriptionsTab
+                      form={form}
+                      patient={patient}
+                      onSavePrescriptions={handleSavePrescriptions}
+                    />
                   </TabsContent>
 
                   <TabsContent value="complaints">

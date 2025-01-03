@@ -7,6 +7,7 @@ import apiRoutes from "./routes/api";
 import prescriptionRoutes from "./routes/prescription.routes";
 import path from "path";
 import fs from "fs";
+import serviceRoutes from "./routes/service.routes";
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use(
 // Then your API routes
 app.use("/api", apiRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
+// app.use("/api", serviceRoutes);  // Comment this out if it's already in apiRoutes
 
 // Error handling
 app.use(errorHandler);

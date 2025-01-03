@@ -224,11 +224,32 @@ export const getWaitingList = async (req: Request, res: Response) => {
       },
     }));
 
-    // console.log('Formatted waiting list:', formattedList); // Debug formatted results
-
     res.json(formattedList);
   } catch (error) {
     console.error("Error fetching waiting list:", error);
     res.status(500).json({ error: "Failed to fetch waiting list" });
+  }
+};
+
+export const updateServiceRequestStatus = async (
+  req: Request,
+  res: Response
+) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    await pool.execute(
+      `UPDATE service_requests 
+       SET status = ?, 
+           updated_at = NOW() 
+       WHERE id = ?`,
+      [status, id]
+    );
+
+    res.json({ message: "Service request status updated successfully" });
+  } catch (error) {
+    console.error("Error updating service request status:", error);
+    res.status(500).json({ error: "Failed to update service request status" });
   }
 };

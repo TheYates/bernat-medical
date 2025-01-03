@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 
 export interface WaitingListItem {
   id: string;
@@ -21,14 +21,14 @@ export interface WaitingListItem {
 
 export const waitingListService = {
   getAll: async () => {
-    const response = await api.get('/services/requests/waiting-list');
+    const response = await api.get("/requests/waiting-list");
     return response.data;
   },
 
-  updateStatus: async (requestId: string) => {
-    const response = await api.patch(`/services/requests/${requestId}/cancel`, {
-      status: 'In Progress'
+  updateStatus: async (id: string) => {
+    const response = await api.put(`/requests/${id}/status`, {
+      status: "In Progress",
     });
     return response.data;
-  }
-}; 
+  },
+};

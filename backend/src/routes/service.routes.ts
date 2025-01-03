@@ -1,14 +1,25 @@
-import express from 'express';
-import { getServices, createServiceRequest, getServiceRequestHistory, cancelServiceRequest, getWaitingList } from '../controllers/service.controller';
-import { authenticate } from '../middleware/auth';
+import express from "express";
+import {
+  getServices,
+  createServiceRequest,
+  getServiceRequestHistory,
+  cancelServiceRequest,
+  getWaitingList,
+  updateServiceRequestStatus,
+} from "../controllers/service.controller";
+import { authenticate } from "../middleware/auth";
 
 const router = express.Router();
 
-router.get('/requests/waiting-list', authenticate, getWaitingList);
+router.get("/requests/waiting-list", authenticate, getWaitingList);
+router.get("/services", authenticate, getServices);
+router.post("/requests", authenticate, createServiceRequest);
+router.get(
+  "/requests/:patientId/history",
+  authenticate,
+  getServiceRequestHistory
+);
+router.patch("/requests/:requestId/cancel", authenticate, cancelServiceRequest);
+router.put("/requests/:id/status", authenticate, updateServiceRequestStatus);
 
-router.get('/', authenticate, getServices);
-router.post('/request', authenticate, createServiceRequest);
-router.get('/requests/:patientId', authenticate, getServiceRequestHistory);
-router.patch('/requests/:requestId/cancel', authenticate, cancelServiceRequest);
-
-export default router; 
+export default router;

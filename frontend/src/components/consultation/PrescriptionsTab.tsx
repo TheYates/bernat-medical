@@ -62,21 +62,24 @@ import {
   generateId,
 } from "@/lib/prescription-utils";
 import { z } from "zod";
+import { Patient } from "@/types/patient";
 
 interface PrescriptionsTabProps {
-  patient: any;
-  drugs: Drug[];
-  selectedDrugs: PrescriptionItem[];
-  onAddDrug: (drug: Drug) => void;
-  onRemoveDrug: (drugId: string) => void;
-  onUpdateDrug: (drugId: string, updates: Partial<PrescriptionItem>) => void;
-  onSavePrescription: () => Promise<void>;
+  form: any;
+  patient: Patient | null;
+  onSavePrescriptions: (prescriptions: any[]) => Promise<void>;
+  drugs?: Drug[];
+  selectedDrugs?: PrescriptionItem[];
+  onAddDrug?: (drug: Drug) => void;
+  onRemoveDrug?: (drugId: string) => void;
+  onUpdateDrug?: (drugId: string, updates: Partial<PrescriptionItem>) => void;
+  onSavePrescription?: () => Promise<void>;
   prescriptionHistory?: Prescription[];
-  isLoadingHistory: boolean;
+  isLoadingHistory?: boolean;
   deletePrescription?: (prescriptionId: string) => Promise<void>;
   instructions?: string;
-  onUpdateInstructions: (instructions: string) => void;
-  clearSelectedDrugs: () => void;
+  onUpdateInstructions?: (value: string) => void;
+  clearSelectedDrugs?: () => void;
   isLoadingDrugs?: boolean;
 }
 
@@ -124,25 +127,22 @@ const prescriptionColumns = [
 ];
 
 export function PrescriptionsTab({
+  form,
   patient,
-  drugs = [],
-  selectedDrugs = [],
-  onAddDrug,
-  onRemoveDrug,
-  onUpdateDrug,
-  onSavePrescription,
-  prescriptionHistory = [],
-  isLoadingHistory = false,
-  deletePrescription,
-  instructions = "",
-  onUpdateInstructions,
-  clearSelectedDrugs,
-  isLoadingDrugs = false,
+  onSavePrescriptions,
 }: PrescriptionsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [drugs, setDrugs] = useState<Drug[]>([]);
+  const [selectedDrugs, setSelectedDrugs] = useState<PrescriptionItem[]>([]);
+  const [instructions, setInstructions] = useState("");
+  const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
+  const [prescriptionHistory, setPrescriptionHistory] = useState<
+    Prescription[]
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Instead of using state for filtered drugs, compute them directly
   const filteredDrugs = useMemo(() => {
@@ -153,80 +153,75 @@ export function PrescriptionsTab({
     });
   }, [searchTerm, drugs]);
 
-  const handleSave = async () => {
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!selectedDrugs.length) {
+      toast.error("No prescriptions to save");
+      return;
+    }
+
     try {
-      if (selectedDrugs.length === 0) {
-        toast.error("Please add at least one medication");
-        return;
-      }
+      await onSavePrescriptions(selectedDrugs);
+      // Fetch updated history first
+      const history = await prescriptionsService.getHistory(
+        patient!.id.toString()
+      );
+      setPrescriptionHistory(history);
 
-      // Validate each drug in selectedDrugs
-      selectedDrugs.forEach((drug) => {
-        if (
-          !drug.drugId ||
-          !drug.dosage ||
-          !drug.frequency ||
-          !drug.duration ||
-          !drug.quantity ||
-          !drug.route
-        ) {
-          throw new Error("Please fill in all required fields");
-        }
-
-        prescriptionSchema.parse({
-          drugId: parseInt(drug.drugId),
-          dosage: drug.dosage.toString(),
-          frequency: drug.frequency,
-          duration: drug.duration.toString(),
-          quantity: drug.quantity.toString(),
-          route: drug.route,
-        });
-      });
-
-      // If validation passes, show confirmation
-      setShowConfirmation(true);
+      toast.success("Prescriptions saved successfully");
+      clearSelectedDrugs();
+      setShowHistory(true);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        const errors = error.errors.map((err) => err.message);
-        toast.error(errors.join("\n"));
-      } else {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Please fill in all required fields"
-        );
-      }
+      toast.error("Failed to save prescriptions");
     }
   };
 
-  const confirmSave = async () => {
+  const confirmSave = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     try {
-      await onSavePrescription();
-      toast.success("Prescription saved successfully");
+      await onSavePrescriptions(selectedDrugs);
+      // Fetch updated history first
+      const history = await prescriptionsService.getHistory(
+        patient!.id.toString()
+      );
+      setPrescriptionHistory(history);
+
+      toast.success("Prescriptions saved successfully");
       setShowConfirmation(false);
+      clearSelectedDrugs();
+      setShowHistory(true);
     } catch (error) {
-      // console.error("Failed to save prescription:", error);
-      toast.error("Failed to save prescription");
+      toast.error("Failed to save prescriptions");
     }
   };
 
-  const handleDelete = async (prescriptionId: string) => {
-    try {
-      if (deletePrescription) {
-        await deletePrescription(prescriptionId);
-        toast.success("Prescription deleted successfully");
-      }
-    } catch (error) {
-      // console.error("Failed to delete prescription:", error);
-      toast.error("Failed to delete prescription");
-    }
+  const onAddDrug = (drug: Drug) => {
+    const prescriptionItem: PrescriptionItem = {
+      id: generateId(),
+      drugId: drug.id.toString(),
+      drug,
+      prescriptionId: "",
+      dosage: "1 tablet",
+      frequency: "Once daily",
+      duration: "1 days",
+      route: "Oral",
+      quantity: 1,
+      salePricePerUnit: Number(drug.salePricePerUnit),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setSelectedDrugs((prev) => [...prev, prescriptionItem]);
   };
 
   const handleDrugSelect = useCallback(
     (drug: Drug) => {
       const prescriptionItem: PrescriptionItem = {
         id: generateId(),
-        drugId: drug.id,
+        drugId: drug.id.toString(),
         drug: {
           ...drug,
           salePricePerUnit: Number(drug.salePricePerUnit),
@@ -262,10 +257,68 @@ export function PrescriptionsTab({
       const newDuration = updates.duration || drug.duration;
 
       const quantity = calculateQuantity(newDosage, newFrequency, newDuration);
-      updates.quantity = quantity;
+      updates.quantity = Number(quantity);
     }
 
     onUpdateDrug(drugId, updates);
+  };
+
+  // Add useEffect to fetch drugs
+  useEffect(() => {
+    const fetchDrugs = async () => {
+      setIsLoadingDrugs(true);
+      try {
+        const response = await prescriptionsService.getDrugs();
+        setDrugs(response);
+      } finally {
+        setIsLoadingDrugs(false);
+      }
+    };
+    fetchDrugs();
+  }, []);
+
+  const onRemoveDrug = (drugId: string) => {
+    setSelectedDrugs((prev) => prev.filter((drug) => drug.drugId !== drugId));
+  };
+
+  const onUpdateInstructions = (value: string) => {
+    setInstructions(value);
+  };
+
+  const clearSelectedDrugs = () => {
+    setSelectedDrugs([]);
+    setInstructions("");
+  };
+
+  // Add useEffect to fetch history when patient changes
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!patient) return;
+      setIsLoadingHistory(true);
+      try {
+        const history = await prescriptionsService.getHistory(
+          patient.id.toString()
+        );
+        setPrescriptionHistory(history);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, [patient]);
+
+  const onUpdateDrug = (drugId: string, updates: Partial<PrescriptionItem>) => {
+    setSelectedDrugs((prev) =>
+      prev.map((drug) =>
+        drug.drugId === drugId ? { ...drug, ...updates } : drug
+      )
+    );
+  };
+
+  const handleViewHistory = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowHistory(true);
   };
 
   return (
@@ -280,7 +333,14 @@ export function PrescriptionsTab({
                   View past prescriptions
                 </p>
               </div>
-              <Button variant="ghost" onClick={() => setShowHistory(false)}>
+              <Button
+                variant="ghost"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowHistory(false);
+                }}
+              >
                 ← Back to Prescribing
               </Button>
             </div>
@@ -335,7 +395,11 @@ export function PrescriptionsTab({
                   Search and add medications
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setShowHistory(true)}>
+              <Button
+                variant="outline"
+                onClick={handleViewHistory}
+                className="flex items-center gap-2"
+              >
                 View History
                 {prescriptionHistory.length > 0 && (
                   <Badge variant="secondary" className="ml-2">
@@ -620,7 +684,7 @@ export function PrescriptionsTab({
                           onClick={handleSave}
                           disabled={selectedDrugs.length === 0}
                         >
-                          Save Prescription
+                          Save Prescriptions
                         </Button>
                       </div>
                     </div>
@@ -636,9 +700,9 @@ export function PrescriptionsTab({
             >
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Save Prescription</AlertDialogTitle>
+                  <AlertDialogTitle>Save Prescriptions</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to save this prescription?
+                    Are you sure you want to save these prescriptions?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

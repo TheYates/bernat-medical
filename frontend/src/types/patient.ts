@@ -1,7 +1,7 @@
-import { VitalSigns } from '@/services/vital-signs.service';
+import { VitalSigns } from "@/services/vital-signs.service";
 
 export interface Patient {
-  id: number;
+  id: string;
   clinicId: string;
   firstName: string;
   middleName: string;
@@ -12,4 +12,5 @@ export interface Patient {
   contact: string;
   maritalStatus?: string;
   residence?: string;
+  serviceRequestId?: string;
 }

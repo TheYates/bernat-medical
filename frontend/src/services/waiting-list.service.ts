@@ -21,14 +21,19 @@ export interface WaitingListItem {
 
 export const waitingListService = {
   getAll: async () => {
-    const response = await api.get("/requests/waiting-list");
+    const response = await api.get("/services/requests/waiting-list");
     return response.data;
   },
 
   updateStatus: async (id: string) => {
-    const response = await api.put(`/requests/${id}/status`, {
+    const response = await api.put(`/services/requests/${id}/status`, {
       status: "In Progress",
     });
+    return response.data;
+  },
+
+  getHistory: async () => {
+    const response = await api.get("/services/requests/history");
     return response.data;
   },
 };

@@ -51,7 +51,6 @@ app.use(
 // Then your API routes
 app.use("/api", apiRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
-// app.use("/api", serviceRoutes);  // Comment this out if it's already in apiRoutes
 
 // Error handling
 app.use(errorHandler);

@@ -76,17 +76,7 @@ import {
 } from "@/components/ui/select";
 import { PatientIdCard } from "@/components/PatientIdCard";
 import { PatientDetails } from "@/components/shared/patient-details";
-
-interface Patient {
-  id: number;
-  clinicId: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  dateOfBirth: string;
-  gender: string;
-  contact: string;
-}
+import { Patient } from "@/types/patient";
 
 interface Service {
   id: number;
@@ -157,7 +147,7 @@ export function ServiceRequest() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await api.get("/services");
+        const response = await api.get("/services/services");
         setServices(response.data);
       } catch (error) {
         console.error("Error fetching services:", error);
@@ -222,11 +212,11 @@ export function ServiceRequest() {
 
   // Event handlers
   const onClinicIdChange = async (value: string) => {
-    // Clear everything if input is empty or backspaced
     if (!value || value.length < 7) {
       setPatient(null);
       setRequests([]);
-      setSelectedServices([]); // Also clear selected services
+      setSelectedServices([]);
+      setRequestHistory([]);
       return;
     }
 
@@ -235,14 +225,15 @@ export function ServiceRequest() {
       setPatient(response.data);
 
       const historyResponse = await api.get(
-        `/services/requests/${response.data.id}`
+        `/services/requests/history/${response.data.id}`
       );
-      setRequests(historyResponse.data);
+      setRequestHistory(historyResponse.data);
+      setRequests([]);
     } catch (error) {
-      // Clear everything if patient not found
       setPatient(null);
       setRequests([]);
-      setSelectedServices([]); // Also clear selected services
+      setSelectedServices([]);
+      setRequestHistory([]);
       console.error("Error fetching patient:", error);
       if (value.length >= 6) {
         toast.error("Patient not found");
@@ -326,7 +317,7 @@ export function ServiceRequest() {
     setShowSearchDialog(false);
 
     api
-      .get(`/services/requests/${selectedPatient.id}`)
+      .get(`/services/requests/history/${selectedPatient.id}`)
       .then((response) => setRequests(response.data))
       .catch((error) =>
         console.error("Error fetching request history:", error)
@@ -372,9 +363,13 @@ export function ServiceRequest() {
   // Add useEffect to fetch history
   useEffect(() => {
     const fetchHistory = async () => {
+      if (!patient?.id) return; // Only fetch if we have a patient
+
       setIsLoadingHistory(true);
       try {
-        const response = await api.get("/services/requests/history");
+        const response = await api.get(
+          `/services/requests/history/${patient.id}`
+        );
         setRequestHistory(response.data);
       } catch (error) {
         toast.error("Failed to fetch request history");
@@ -384,7 +379,7 @@ export function ServiceRequest() {
     };
 
     fetchHistory();
-  }, []);
+  }, [patient]); // Depend on patient changes
 
   return (
     <DashboardLayout>

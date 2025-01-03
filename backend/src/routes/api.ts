@@ -61,7 +61,7 @@ router.use("/inventory", inventoryRoutes);
 router.use("/audit", auditRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/patients", patientRoutes);
-router.use("/", serviceRoutes);
+router.use("/services", serviceRoutes);
 router.use("/prescriptions", prescriptionRoutes);
 router.use("/xray-requests", xrayRequestRoutes);
 router.use("/pharmacy", pharmacyRoutes);

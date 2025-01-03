@@ -83,49 +83,56 @@ export const createServiceRequest = async (
 // Get service request history for a patient
 export const getServiceRequestHistory = async (req: Request, res: Response) => {
   try {
-    const patientId = req.params.patientId;
+    const { patientId } = req.params;
 
-    const [requests] = (await pool.execute(
+    const [history] = await pool.execute<RowDataPacket[]>(
       `
       SELECT 
-        sr.id, 
-        sr.status, 
-        sr.created_at,
-        JSON_ARRAYAGG(
-          JSON_OBJECT(
-            'id', s.id,
-            'name', s.name,
-            'price', s.price,
-            'priceAtTime', sri.price_at_time
-          )
-        ) as services
+        sr.id,
+        sr.status,
+        sr.created_at as createdAt,
+        p.clinic_id as clinicId,
+        p.first_name as firstName,
+        p.middle_name as middleName,
+        p.last_name as lastName,
+        p.date_of_birth as dateOfBirth,
+        p.gender,
+        s.id as serviceId,
+        s.name as serviceName,
+        s.category as serviceCategory
       FROM service_requests sr
-      LEFT JOIN service_request_items sri ON sr.id = sri.request_id
-      LEFT JOIN services s ON sri.service_id = s.id
+      JOIN patients p ON sr.patient_id = p.id
+      JOIN service_request_items sri ON sr.id = sri.request_id
+      JOIN services s ON sri.service_id = s.id
       WHERE sr.patient_id = ?
-      GROUP BY sr.id, sr.status, sr.created_at
       ORDER BY sr.created_at DESC
     `,
       [patientId]
-    )) as [RowDataPacket[], any];
+    );
 
-    // Clean up the results and format dates
-    const cleanedRequests = requests.map((request) => ({
-      ...request,
-      createdAt: request.created_at.toISOString(), // Convert MySQL date to ISO string
-      services: request.services.filter(Boolean).map((service: any) => ({
-        ...service,
-        price: Number(service.price),
-        priceAtTime: Number(service.priceAtTime),
-      })),
+    const formattedList = history.map((item) => ({
+      id: item.id,
+      createdAt: item.createdAt.toISOString(),
+      status: item.status,
+      patient: {
+        clinicId: item.clinicId,
+        firstName: item.firstName,
+        middleName: item.middleName,
+        lastName: item.lastName,
+        dateOfBirth: item.dateOfBirth.toISOString(),
+        gender: item.gender,
+      },
+      service: {
+        id: item.serviceId,
+        name: item.serviceName,
+        category: item.serviceCategory,
+      },
     }));
 
-    res.json(cleanedRequests);
+    res.json(formattedList);
   } catch (error) {
     console.error("Error fetching service request history:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to fetch service request history" });
+    res.status(500).json({ error: "Failed to fetch service request history" });
   }
 };
 

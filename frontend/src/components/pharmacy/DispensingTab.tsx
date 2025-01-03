@@ -216,26 +216,29 @@ export function DispensingTab() {
       setShowPaymentDialog(false);
       setSelectedItems([]);
 
-      // Refresh prescriptions
+      // Refresh all data
       if (patient) {
-        await fetchPrescriptions(Number(patient.id));
-        await fetchPrescriptionHistory(Number(patient.id));
+        await Promise.all([
+          fetchPrescriptions(Number(patient.id)),
+          fetchPrescriptionHistory(Number(patient.id)),
+          fetchWaitingList(),
+        ]);
       }
     } catch (error) {
       toast.error("Failed to dispense prescriptions");
     }
   };
 
-  useEffect(() => {
-    const fetchWaitingList = async () => {
-      try {
-        const response = await api.get("/pharmacy/waiting-list");
-        setWaitingList(response.data);
-      } catch (error) {
-        toast.error("Failed to fetch waiting list");
-      }
-    };
+  const fetchWaitingList = async () => {
+    try {
+      const response = await api.get("/pharmacy/waiting-list");
+      setWaitingList(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch waiting list");
+    }
+  };
 
+  useEffect(() => {
     fetchWaitingList();
   }, []);
 

@@ -15,7 +15,7 @@ router.get("/requests/waiting-list", authenticate, getWaitingList);
 router.get("/services", authenticate, getServices);
 router.post("/requests", authenticate, createServiceRequest);
 router.get(
-  "/requests/:patientId/history",
+  "/requests/history/:patientId",
   authenticate,
   getServiceRequestHistory
 );

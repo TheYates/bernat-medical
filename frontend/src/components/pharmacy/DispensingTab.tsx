@@ -40,6 +40,7 @@ import { Patient } from "@/types/patient";
 import { format, parseISO } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { PaymentDialog } from "@/components/shared/payment-dialog";
+import { WaitingListItem } from "@/services/waiting-list.service";
 
 interface Prescription {
   id: string;
@@ -63,6 +64,10 @@ interface Prescription {
     id: number;
     fullName: string;
   };
+  total_amount?: number;
+  payment_methods?: string[];
+  created_at?: string;
+  dispensed_by?: string;
 }
 
 const formSchema = z.object({
@@ -88,7 +93,7 @@ export function DispensingTab() {
     {}
   );
   const [showWaitingList, setShowWaitingList] = useState(false);
-  const [waitingList, setWaitingList] = useState<Patient[]>([]);
+  const [waitingList, setWaitingList] = useState<WaitingListItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [prescriptionHistory, setPrescriptionHistory] = useState<
     Prescription[]
@@ -119,8 +124,8 @@ export function DispensingTab() {
       setPatient(response.data);
 
       await Promise.all([
-        fetchPrescriptions(response.data.id),
-        fetchPrescriptionHistory(response.data.id),
+        fetchPrescriptions(Number(response.data.id)),
+        fetchPrescriptionHistory(Number(response.data.id)),
       ]);
     } catch (error) {
       if (value.length >= 7) {
@@ -213,8 +218,8 @@ export function DispensingTab() {
 
       // Refresh prescriptions
       if (patient) {
-        await fetchPrescriptions(patient.id);
-        await fetchPrescriptionHistory(patient.id);
+        await fetchPrescriptions(Number(patient.id));
+        await fetchPrescriptionHistory(Number(patient.id));
       }
     } catch (error) {
       toast.error("Failed to dispense prescriptions");
@@ -224,7 +229,7 @@ export function DispensingTab() {
   useEffect(() => {
     const fetchWaitingList = async () => {
       try {
-        const response = await api.get("/pharmacy/prescriptions/waiting-list");
+        const response = await api.get("/pharmacy/waiting-list");
         setWaitingList(response.data);
       } catch (error) {
         toast.error("Failed to fetch waiting list");
@@ -234,7 +239,7 @@ export function DispensingTab() {
     fetchWaitingList();
   }, []);
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "-";
     try {
       return format(parseISO(dateString), "dd/MM/yyyy hh:mm a");
@@ -273,6 +278,7 @@ export function DispensingTab() {
               />
 
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setShowWaitingList(true)}
               >
@@ -539,19 +545,19 @@ export function DispensingTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {waitingList.map((patient) => (
-                    <TableRow key={patient.id}>
+                  {waitingList.map((request) => (
+                    <TableRow key={request.id}>
                       <TableCell>
-                        {patient.firstName} {patient.lastName}
+                        {request.patient.firstName} {request.patient.lastName}
                       </TableCell>
-                      <TableCell>{patient.clinicId}</TableCell>
-                      <TableCell>{patient.gender}</TableCell>
+                      <TableCell>{request.patient.clinicId}</TableCell>
+                      <TableCell>{request.patient.gender}</TableCell>
                       <TableCell>
                         <Button
                           size="sm"
                           onClick={() => {
-                            form.setValue("clinicId", patient.clinicId);
-                            onClinicIdChange(patient.clinicId);
+                            form.setValue("clinicId", request.patient.clinicId);
+                            onClinicIdChange(request.patient.clinicId);
                             setShowWaitingList(false);
                           }}
                         >

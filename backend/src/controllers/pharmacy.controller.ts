@@ -152,3 +152,45 @@ export class PharmacyController {
 
   // Add other methods (getWaitingList, getPrescriptionHistory) here...
 }
+
+export const getPharmacyWaitingList = async (req: Request, res: Response) => {
+  try {
+    const [waitingList] = await pool.execute<RowDataPacket[]>(`
+      SELECT DISTINCT
+        p.id as prescriptionId,
+        p.created_at,
+        pat.id as patientId,
+        pat.clinic_id as clinicId,
+        pat.first_name as firstName,
+        pat.middle_name as middleName,
+        pat.last_name as lastName,
+        pat.gender
+      FROM prescriptions p
+      JOIN patients pat ON p.patient_id = pat.id
+      WHERE p.dispensed = false
+      ORDER BY p.created_at ASC
+    `);
+
+    const formattedList = (waitingList as RowDataPacket[]).map((item) => ({
+      id: item.prescriptionId,
+      createdAt: item.created_at,
+      patient: {
+        clinicId: item.clinicId,
+        firstName: item.firstName,
+        middleName: item.middleName,
+        lastName: item.lastName,
+        gender: item.gender,
+      },
+      service: {
+        id: "pharmacy",
+        name: "Pharmacy",
+        category: "pharmacy",
+      },
+    }));
+
+    res.json(formattedList);
+  } catch (error) {
+    console.error("Error fetching pharmacy waiting list:", error);
+    res.status(500).json({ error: "Failed to fetch pharmacy waiting list" });
+  }
+};

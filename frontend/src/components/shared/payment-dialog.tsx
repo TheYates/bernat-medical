@@ -9,47 +9,41 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
-import { CreditCard, Banknote, Smartphone, Shield } from "lucide-react";
+import { PaymentMethodButton } from "./payment-method-button";
 
 interface PaymentMethod {
   id: string;
   label: string;
-  icon: React.ReactNode;
 }
 
-const paymentMethods: PaymentMethod[] = [
-  { id: "card", label: "Card", icon: <CreditCard className="h-6 w-6" /> },
-  { id: "cash", label: "Cash", icon: <Banknote className="h-6 w-6" /> },
-  {
-    id: "mobile",
-    label: "Mobile Money",
-    icon: <Smartphone className="h-6 w-6" />,
-  },
-  {
-    id: "insurance",
-    label: "Insurance",
-    icon: <Shield className="h-6 w-6" />,
-  },
-];
+interface PaymentItem {
+  name: string;
+  quantity: number;
+  amount: number;
+}
 
 interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   totalAmount: number;
-  onSubmit: (paymentData: {
+  onSubmit: (data: {
     methods: string[];
     amounts: Record<string, number>;
-  }) => Promise<void>;
+  }) => void;
   summary?: {
     title: string;
-    items: Array<{
-      name: string;
-      quantity?: number;
-      amount: number;
-    }>;
+    items: PaymentItem[];
   };
 }
+
+const paymentMethods: PaymentMethod[] = [
+  { id: "cash", label: "Cash" },
+  { id: "card", label: "Card" },
+  { id: "mobile", label: "Mobile Money" },
+  { id: "insurance", label: "Insurance" },
+];
 
 export function PaymentDialog({
   open,
@@ -58,75 +52,62 @@ export function PaymentDialog({
   onSubmit,
   summary,
 }: PaymentDialogProps) {
-  const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
-  const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<
+    string[]
+  >([]);
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>(
+    {}
+  );
 
-  const handleMethodChange = (method: string) => {
-    setSelectedMethods((prev) => {
+  const handlePaymentMethodChange = (method: string) => {
+    setSelectedPaymentMethods((prev) => {
       const isSelected = prev.includes(method);
       const newMethods = isSelected
         ? prev.filter((m) => m !== method)
         : [...prev, method];
 
-      // If only one method selected, set full amount
+      // If only one method selected, automatically assign full amount
       if (newMethods.length === 1) {
-        setAmounts({ [newMethods[0]]: totalAmount });
+        setPaymentAmounts({ [newMethods[0]]: totalAmount });
       }
       // If switching to multiple methods or no methods, reset amounts
       else {
-        setAmounts({});
+        setPaymentAmounts({});
       }
 
       return newMethods;
     });
   };
 
-  const handleAmountChange = (method: string, amount: string) => {
-    setAmounts((prev) => ({
+  const handlePaymentAmountChange = (method: string, amount: string) => {
+    setPaymentAmounts((prev) => ({
       ...prev,
       [method]: parseFloat(amount) || 0,
     }));
   };
 
-  const handleSubmit = async () => {
-    await onSubmit({
-      methods: selectedMethods,
-      amounts,
-    });
-    // Reset form
-    setSelectedMethods([]);
-    setAmounts({});
-  };
-
-  const totalPaid = Object.values(amounts).reduce(
-    (sum, amount) => sum + amount,
-    0
-  );
-  const remaining = totalAmount - totalPaid;
-
-  // Round numbers to 2 decimal places for comparison
-  const roundedTotalPaid = Math.round(totalPaid * 100) / 100;
-  const roundedTotalAmount = Math.round(totalAmount * 100) / 100;
+  const remainingAmount =
+    totalAmount -
+    Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Payment Method</DialogTitle>
+          <DialogTitle>Payment Details</DialogTitle>
           <DialogDescription>
-            Select payment method to complete transaction
+            Total Amount: {formatCurrency(totalAmount)}
           </DialogDescription>
         </DialogHeader>
 
         {summary && (
-          <div className="bg-muted/50 rounded-lg p-4">
-            <h4 className="font-medium text-sm">{summary.title}</h4>
-            <div className="mt-2">
+          <div className="border rounded-lg p-4 mb-4">
+            <h4 className="font-medium mb-2">{summary.title}</h4>
+            <div className="space-y-2">
               {summary.items.map((item, index) => (
                 <div key={index} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {item.name}
-                    {item.quantity && ` × ${item.quantity}`}
+                  <span>
+                    {item.name} {item.quantity > 1 && `(${item.quantity})`}
                   </span>
                   <span>{formatCurrency(item.amount)}</span>
                 </div>
@@ -135,59 +116,50 @@ export function PaymentDialog({
           </div>
         )}
 
-        <div className="flex gap-4 justify-between">
-          {paymentMethods.map((method) => (
-            <button
-              key={method.id}
-              className={`flex-1 flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
-                selectedMethods.includes(method.id)
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
-              onClick={() => handleMethodChange(method.id)}
-            >
-              {method.icon}
-              <span className="mt-2 text-sm font-medium">{method.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {selectedMethods.length > 1 && (
-          <div className="mt-4">
-            <div className="flex gap-4">
-              {selectedMethods.map((methodId) => (
-                <div key={methodId} className="flex-1">
-                  <span className="block mb-2 text-sm font-medium">
-                    {paymentMethods.find((m) => m.id === methodId)?.label}
-                  </span>
-                  <Input
-                    type="number"
-                    placeholder="Amount"
-                    value={amounts[methodId] || ""}
-                    onChange={(e) =>
-                      handleAmountChange(methodId, e.target.value)
-                    }
-                  />
-                </div>
+        <div className="space-y-6">
+          <div>
+            <label className="text-sm font-medium mb-3 block">
+              Select Payment Method
+            </label>
+            <div className="flex flex-row gap-2 justify-center">
+              {paymentMethods.map((method) => (
+                <PaymentMethodButton
+                  key={method.id}
+                  id={method.id}
+                  label={method.label}
+                  selected={selectedPaymentMethods.includes(method.id)}
+                  onClick={() => handlePaymentMethodChange(method.id)}
+                />
               ))}
             </div>
           </div>
-        )}
 
-        {selectedMethods.length > 0 && (
-          <div className="mt-4">
-            <div className="text-sm">
-              Total Paid: {formatCurrency(totalPaid)}
-            </div>
-            <div className="text-sm">
-              Remaining: {formatCurrency(remaining)}
-            </div>
-          </div>
-        )}
+          {/* Only show amount inputs for multiple payment methods */}
+          {selectedPaymentMethods.length > 1 && (
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                {selectedPaymentMethods.map((method) => (
+                  <div key={method} className="flex-1">
+                    <label className="text-sm font-medium block mb-2">
+                      {paymentMethods.find((m) => m.id === method)?.label}
+                    </label>
+                    <Input
+                      type="number"
+                      value={paymentAmounts[method] || ""}
+                      onChange={(e) =>
+                        handlePaymentAmountChange(method, e.target.value)
+                      }
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                ))}
+              </div>
 
-        <div className="bg-secondary p-4 rounded-lg flex justify-between items-center">
-          <span className="font-medium">Total Amount</span>
-          <span className="font-medium">{formatCurrency(totalAmount)}</span>
+              <div className="text-sm text-muted-foreground">
+                Remaining: {formatCurrency(remainingAmount)}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -195,14 +167,17 @@ export function PaymentDialog({
             Cancel
           </Button>
           <Button
-            onClick={handleSubmit}
-            disabled={
-              !selectedMethods.length ||
-              roundedTotalPaid !== roundedTotalAmount ||
-              Object.keys(amounts).length !== selectedMethods.length
-            }
+            onClick={() => {
+              onSubmit({
+                methods: selectedPaymentMethods,
+                amounts: paymentAmounts,
+              });
+              setSelectedPaymentMethods([]);
+              setPaymentAmounts({});
+            }}
+            disabled={Math.abs(remainingAmount) > 0.01}
           >
-            Process Payment
+            Complete Payment
           </Button>
         </DialogFooter>
       </DialogContent>

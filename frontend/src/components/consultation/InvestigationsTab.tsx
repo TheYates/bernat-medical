@@ -1,18 +1,45 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { Check, ChevronsUpDown, Trash2, FileText } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/utils';
-import { toast } from 'sonner';
-import { investigationsService, type Investigation } from '@/services/investigations.service';
-import { api } from '@/lib/api';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { Check, ChevronsUpDown, Trash2, FileText } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  investigationsService,
+  type Investigation,
+} from "@/services/investigations.service";
+import { api } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Service {
@@ -28,12 +55,14 @@ interface InvestigationsTabProps {
 
 export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoadingInvestigations, setIsLoadingInvestigations] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
-  const [selectedResult, setSelectedResult] = useState<Investigation | null>(null);
+  const [selectedResult, setSelectedResult] = useState<Investigation | null>(
+    null
+  );
   const [showResultDetails, setShowResultDetails] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
 
@@ -45,19 +74,21 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
       setIsLoadingInvestigations(true);
       try {
         // Fetch services - make category check case-insensitive
-        const servicesResponse = await api.get('/services', {
+        const servicesResponse = await api.get("/services", {
           params: {
-            category: 'laboratory'  // lowercase to match database
-          }
+            category: "laboratory", // lowercase to match database
+          },
         });
         setServices(servicesResponse.data);
 
         // Fetch investigations
-        const investigationsData = await investigationsService.getHistory(patient.id);
+        const investigationsData = await investigationsService.getHistory(
+          patient.id
+        );
         setInvestigations(investigationsData);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to fetch data');
+        console.error("Error fetching data:", error);
+        toast.error("Failed to fetch data");
       } finally {
         setIsLoadingInvestigations(false);
       }
@@ -67,66 +98,69 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   }, [patient?.id]);
 
   // Filter services based on search term
-  const filteredServices = services.filter(service => 
-    service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredServices = services.filter(
+    (service) =>
+      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      service.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const addService = (service: Service) => {
-    if (!selectedServices.some(s => s.id === service.id)) {
+    if (!selectedServices.some((s) => s.id === service.id)) {
       setSelectedServices([...selectedServices, service]);
     }
   };
 
   const removeService = (serviceId: string) => {
-    setSelectedServices(selectedServices.filter(s => s.id !== serviceId));
+    setSelectedServices(selectedServices.filter((s) => s.id !== serviceId));
   };
 
   const handleInvestigationRequest = async () => {
     try {
       // Add debug logging
-      console.log('Sending investigation request:', {
+      console.log("Sending investigation request:", {
         patientId: patient?.id,
-        selectedInvestigations: selectedServices.map(s => s.id)
+        selectedInvestigations: selectedServices.map((s) => s.id),
       });
 
       // If you're sending multiple investigations, handle them one by one
-      for (const serviceId of selectedServices.map(s => s.id)) {
+      for (const serviceId of selectedServices.map((s) => s.id)) {
         await investigationsService.create({
           patientId: patient?.id,
-          serviceId
+          serviceId,
         });
       }
 
-      toast.success('Investigation request created');
+      toast.success("Investigation request created");
       setSelectedServices([]);
       setOpen(false);
     } catch (error) {
-      console.error('Investigation request error:', error.response?.data || error);
-      toast.error('Failed to create investigation request');
+      console.error("Investigation request error:", error);
+      toast.error("Failed to create investigation request");
     }
   };
 
   const deleteInvestigation = async (investigationId: string) => {
     try {
       await investigationsService.delete(investigationId);
-      
+
       // Refresh investigations list
-      const updatedInvestigations = await investigationsService.getHistory(patient.id);
+      const updatedInvestigations = await investigationsService.getHistory(
+        patient.id
+      );
       setInvestigations(updatedInvestigations);
-      
-      toast.success('Investigation deleted successfully');
+
+      toast.success("Investigation deleted successfully");
     } catch (error) {
-      console.error('Error deleting investigation:', error);
-      toast.error('Failed to delete investigation');
+      console.error("Error deleting investigation:", error);
+      toast.error("Failed to delete investigation");
     }
   };
 
   // Helper function to get correct file URL
   const getFileUrl = (fileUrl: string) => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    const url = fileUrl.startsWith('http') ? fileUrl : `${apiUrl}${fileUrl}`;
-    console.log('Constructed file URL:', url);
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    const url = fileUrl.startsWith("http") ? fileUrl : `${apiUrl}${fileUrl}`;
+    console.log("Constructed file URL:", url);
     return url;
   };
 
@@ -267,9 +301,13 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                   </TableRow>
                 ) : investigations.length > 0 ? (
                   investigations.map((investigation) => (
-                    <TableRow 
+                    <TableRow
                       key={investigation.id}
-                      className={investigation.status === "Completed" ? "cursor-pointer hover:bg-muted/50" : ""}
+                      className={
+                        investigation.status === "Completed"
+                          ? "cursor-pointer hover:bg-muted/50"
+                          : ""
+                      }
                       onClick={() => {
                         if (investigation.status === "Completed") {
                           setSelectedResult(investigation);
@@ -278,7 +316,10 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                       }}
                     >
                       <TableCell>
-                        {format(new Date(investigation.createdAt), "dd/MM/yyyy")}
+                        {format(
+                          new Date(investigation.createdAt),
+                          "dd/MM/yyyy"
+                        )}
                       </TableCell>
                       <TableCell>{investigation.service.name}</TableCell>
                       <TableCell>{investigation.service.category}</TableCell>
@@ -327,7 +368,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deleteInvestigation(investigation.id)}
+                            onClick={() =>
+                              deleteInvestigation(investigation.id)
+                            }
                             className="h-7 w-7 p-0"
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -363,27 +406,42 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                 {/* Header Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm text-muted-foreground">Investigation</label>
+                    <label className="text-sm text-muted-foreground">
+                      Investigation
+                    </label>
                     <p className="font-medium">{selectedResult.service.name}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm text-muted-foreground">Category</label>
-                    <p className="font-medium">{selectedResult.service.category}</p>
+                    <label className="text-sm text-muted-foreground">
+                      Category
+                    </label>
+                    <p className="font-medium">
+                      {selectedResult.service.category}
+                    </p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm text-muted-foreground">Date</label>
+                    <label className="text-sm text-muted-foreground">
+                      Date
+                    </label>
                     <p className="font-medium">
                       {format(new Date(selectedResult.createdAt), "PPpp")}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm text-muted-foreground">Status</label>
-                    <Badge variant={
-                      selectedResult.status === "Completed" ? "success" :
-                      selectedResult.status === "In Progress" ? "warning" :
-                      selectedResult.status === "Cancelled" ? "destructive" : 
-                      "default"
-                    }>
+                    <label className="text-sm text-muted-foreground">
+                      Status
+                    </label>
+                    <Badge
+                      variant={
+                        selectedResult.status === "Completed"
+                          ? "success"
+                          : selectedResult.status === "In Progress"
+                          ? "warning"
+                          : selectedResult.status === "Cancelled"
+                          ? "destructive"
+                          : "default"
+                      }
+                    >
                       {selectedResult.status}
                     </Badge>
                   </div>
@@ -391,7 +449,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
 
                 {/* Result Section */}
                 <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Result</label>
+                  <label className="text-sm text-muted-foreground">
+                    Result
+                  </label>
                   <div className="bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
                     {selectedResult.result || "No result recorded"}
                   </div>
@@ -400,7 +460,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                 {/* Attachments Section */}
                 {selectedResult.fileUrl && (
                   <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">Attachments</label>
+                    <label className="text-sm text-muted-foreground">
+                      Attachments
+                    </label>
                     <div className="bg-muted/50 p-4 rounded-lg">
                       <a
                         onClick={(e) => {
@@ -420,8 +482,12 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                 {/* Performed By Section */}
                 {selectedResult.performedBy && (
                   <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">Performed By</label>
-                    <p className="font-medium">{selectedResult.performedBy.fullName}</p>
+                    <label className="text-sm text-muted-foreground">
+                      Performed By
+                    </label>
+                    <p className="font-medium">
+                      {selectedResult.performedBy.fullName}
+                    </p>
                   </div>
                 )}
               </div>
@@ -437,9 +503,16 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
             <DialogDescription asChild>
               {selectedResult && (
                 <div className="flex items-center justify-between">
-                  <span>{selectedResult.service.name} - {format(new Date(selectedResult.createdAt), "PPP")}</span>
+                  <span>
+                    {selectedResult.service.name} -{" "}
+                    {format(new Date(selectedResult.createdAt), "PPP")}
+                  </span>
                   <a
-                    href={selectedResult?.fileUrl ? getFileUrl(selectedResult.fileUrl) : '#'}
+                    href={
+                      selectedResult?.fileUrl
+                        ? getFileUrl(selectedResult.fileUrl)
+                        : "#"
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline text-sm flex items-center gap-2"
@@ -453,7 +526,11 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
           {selectedResult?.fileUrl && (
             <div className="relative w-full h-full">
               <iframe
-                src={selectedResult?.fileUrl ? getFileUrl(selectedResult.fileUrl) : ''}
+                src={
+                  selectedResult?.fileUrl
+                    ? getFileUrl(selectedResult.fileUrl)
+                    : ""
+                }
                 className="w-full h-[calc(90vh-80px)]"
                 title="Document Preview"
               />
@@ -463,4 +540,4 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
       </Dialog>
     </Card>
   );
-} 
+}

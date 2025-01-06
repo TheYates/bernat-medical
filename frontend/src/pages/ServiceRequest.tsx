@@ -104,6 +104,11 @@ interface ServiceRequest {
   };
 }
 
+interface ServiceRequestData {
+  patientId: number;
+  services: number[];
+}
+
 const formSchema = z.object({
   clinicId: z.string().min(1, "Clinic ID is required"),
 });
@@ -147,7 +152,7 @@ export function ServiceRequest() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await api.get("/services/services");
+        const response = await api.get("/services");
         setServices(response.data);
       } catch (error) {
         console.error("Error fetching services:", error);
@@ -255,14 +260,12 @@ export function ServiceRequest() {
 
       toast.success("Service request created successfully");
 
-      // Refresh the request history
-      const historyResponse = await api.get(`/services/requests/${patient.id}`);
+      const historyResponse = await api.get(
+        `/services/requests/history/${patient.id}`
+      );
       setRequests(historyResponse.data);
 
-      // Clear selected services
       setSelectedServices([]);
-
-      // Close the confirmation dialog
       setShowCreateDialog(false);
     } catch (error) {
       console.error("Error creating service request:", error);
@@ -380,6 +383,10 @@ export function ServiceRequest() {
 
     fetchHistory();
   }, [patient]); // Depend on patient changes
+
+  const createServiceRequest = async (data: ServiceRequestData) => {
+    return await api.post("/services/request", data);
+  };
 
   return (
     <DashboardLayout>

@@ -47,7 +47,7 @@ export function LoginForm() {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
-      const response = await api.post('/auth/login', data);
+      const response = await api.post("/auth/login", data);
       login(response.data.token, response.data.user);
       navigate("/dashboard");
     } catch (error) {
@@ -151,4 +151,4 @@ export function LoginForm() {
       </div>
     </div>
   );
-} 
+}

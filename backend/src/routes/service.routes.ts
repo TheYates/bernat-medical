@@ -1,19 +1,22 @@
-import express from "express";
+import { Router } from "express";
 import {
   getServices,
   createServiceRequest,
   getServiceRequestHistory,
-  cancelServiceRequest,
   getWaitingList,
   updateServiceRequestStatus,
+  cancelServiceRequest,
 } from "../controllers/service.controller";
 import { authenticate } from "../middleware/auth";
 
-const router = express.Router();
+const router = Router();
 
+// Service routes
+router.get("/", authenticate, getServices); // GET /api/services
+router.post("/request", authenticate, createServiceRequest); // POST /api/services/request
+
+// Service request routes
 router.get("/requests/waiting-list", authenticate, getWaitingList);
-router.get("/services", authenticate, getServices);
-router.post("/requests", authenticate, createServiceRequest);
 router.get(
   "/requests/history/:patientId",
   authenticate,

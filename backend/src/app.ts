@@ -51,8 +51,19 @@ app.use(
 // Then your API routes
 app.use("/api", apiRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/services", serviceRoutes);
 
 // Error handling
 app.use(errorHandler);
+
+// Add this for debugging
+console.log("Registered routes:");
+app._router.stack
+  .filter((r: any) => r.route)
+  .forEach((r: any) => {
+    console.log(
+      `${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}`
+    );
+  });
 
 export default app;

@@ -16,10 +16,13 @@ export const getServices = async (req: Request, res: Response) => {
     const category = req.query.category as string;
 
     const query = category
-      ? "SELECT * FROM services WHERE LOWER(category) = LOWER(?)"
+      ? "SELECT * FROM services WHERE category = ?"
       : "SELECT * FROM services";
 
     const params = category ? [category] : [];
+
+    console.log("Fetching services:", { category, query, params }); // Debug log
+
     const [services] = await pool.execute(query, params);
 
     res.json(services);
@@ -33,6 +36,11 @@ export const createServiceRequest = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
+  console.log("Received request:", {
+    url: req.url,
+    method: req.method,
+    body: req.body,
+  });
   const connection = await pool.getConnection();
 
   try {

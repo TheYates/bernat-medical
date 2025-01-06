@@ -34,7 +34,7 @@ export function PaymentMethodButton({
     <Button
       variant="outline"
       className={cn(
-        "h-auto w-[100px] flex flex-col items-center justify-center py-4 px-2",
+        "h-auto w-[120px] flex flex-col items-center justify-center py-4 px-2",
         "border-2 hover:bg-accent",
         selected && "border-primary bg-accent"
       )}

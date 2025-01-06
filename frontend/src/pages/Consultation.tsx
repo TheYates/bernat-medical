@@ -75,6 +75,8 @@ const consultationSchema = z.object({
   prescriptions: z.array(z.any()).optional(),
 });
 
+type TabKey = "complaints" | "clinicalNotes" | "diagnosis" | "treatment";
+
 export function ConsultationPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -82,8 +84,15 @@ export function ConsultationPage() {
   const [waitingList, setWaitingList] = useState<WaitingListItem[]>([]);
   const [isLoadingWaitingList, setIsLoadingWaitingList] = useState(false);
   const [selectedDrugs, setSelectedDrugs] = useState<PrescriptionDrug[]>([]);
-  const [activeTab, setActiveTab] = useState("prescriptions");
+  const [activeTab, setActiveTab] = useState("complaints");
   const [waitingListCount, setWaitingListCount] = useState(0);
+  const [consultationHistory, setConsultationHistory] = useState([]);
+  const [showHistoryMap, setShowHistoryMap] = useState({
+    complaints: false,
+    clinicalNotes: false,
+    diagnosis: false,
+    treatment: false,
+  });
 
   const form = useForm({
     resolver: zodResolver(consultationSchema),
@@ -124,9 +133,12 @@ export function ConsultationPage() {
       // Update service request status to completed
       if (patient?.serviceRequestId) {
         try {
-          await api.put(`/requests/${patient.serviceRequestId}/status`, {
-            status: "Completed",
-          });
+          await api.put(
+            `/services/requests/${patient.serviceRequestId}/status`,
+            {
+              status: "Completed",
+            }
+          );
         } catch (error) {
           console.error("Status update error:", error);
         }
@@ -134,15 +146,22 @@ export function ConsultationPage() {
 
       toast.success("Consultation saved successfully", {
         description: `Consultation for ${patient.firstName} ${patient.lastName} has been recorded.`,
-        action: {
-          label: "View History",
-          onClick: () => setActiveTab("history"),
-        },
       });
 
+      // Store current clinicId before reset
+      const currentClinicId = form.getValues("clinicId");
+
       // Reset form and state
-      form.reset();
-      setPatient(null);
+      form.reset({
+        clinicId: currentClinicId, // Preserve clinic ID
+        complaints: "",
+        clinicalNotes: "",
+        diagnosis: "",
+        treatment: "",
+      });
+
+      // Don't clear patient data
+      // setPatient(null);
       setSelectedDrugs([]);
       setShowPreview(false);
       fetchWaitingList(); // Refresh waiting list to show updated status
@@ -221,6 +240,22 @@ export function ConsultationPage() {
       console.error("Error saving prescriptions:", error);
       toast.error("Failed to save prescriptions");
     }
+  };
+
+  const fetchConsultationHistory = async (patientId: number) => {
+    try {
+      const response = await api.get(`/consultations/${patientId}/history`);
+      setConsultationHistory(response.data);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    }
+  };
+
+  const toggleHistory = (tab: TabKey) => {
+    setShowHistoryMap((prev) => ({
+      ...prev,
+      [tab]: !prev[tab],
+    }));
   };
 
   return (
@@ -313,19 +348,39 @@ export function ConsultationPage() {
                   </TabsContent>
 
                   <TabsContent value="complaints">
-                    <ComplaintsTab form={form} patient={patient} />
+                    <ComplaintsTab
+                      form={form}
+                      patient={patient}
+                      showHistory={showHistoryMap.complaints}
+                      onToggleHistory={() => toggleHistory("complaints")}
+                    />
                   </TabsContent>
 
                   <TabsContent value="notes">
-                    <ClinicalNotesTab form={form} patient={patient} />
+                    <ClinicalNotesTab
+                      form={form}
+                      patient={patient}
+                      showHistory={showHistoryMap.clinicalNotes}
+                      onToggleHistory={() => toggleHistory("clinicalNotes")}
+                    />
                   </TabsContent>
 
                   <TabsContent value="diagnosis">
-                    <DiagnosisTab form={form} patient={patient} />
+                    <DiagnosisTab
+                      form={form}
+                      patient={patient}
+                      showHistory={showHistoryMap.diagnosis}
+                      onToggleHistory={() => toggleHistory("diagnosis")}
+                    />
                   </TabsContent>
 
                   <TabsContent value="treatment">
-                    <TreatmentTab form={form} patient={patient} />
+                    <TreatmentTab
+                      form={form}
+                      patient={patient}
+                      showHistory={showHistoryMap.treatment}
+                      onToggleHistory={() => toggleHistory("treatment")}
+                    />
                   </TabsContent>
 
                   <TabsContent value="vitals">

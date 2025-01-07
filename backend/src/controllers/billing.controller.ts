@@ -59,24 +59,21 @@ export const getPendingPayments = async (req: Request, res: Response) => {
 
 export const getPaymentHistory = async (req: Request, res: Response) => {
   try {
-    const { patientId } = req.params;
+    const patientId = Number(req.params.patientId);
+    const page = Number(req.query.page) || 1;
+    const limit = 5;
+    const offset = (page - 1) * limit;
 
-    const [payments] = await pool.execute<RowDataPacket[]>(
+    // First get the data without pagination to get total count
+    const [allPayments] = await pool.execute<RowDataPacket[]>(
       `
       (
-        -- Service Request Payments
         SELECT 
           sr.id,
           s.name as service,
           SUM(p.amount) as amount,
           GROUP_CONCAT(
-            CONCAT(
-              p.method, 
-              ': GH₵', 
-              FORMAT(p.amount, 2)
-            )
-            ORDER BY p.recorded_at
-            SEPARATOR ', '
+            CONCAT(p.method, ': GH₵', FORMAT(p.amount, 2))
           ) as payment_methods,
           MAX(p.status) as status,
           MAX(p.recorded_at) as createdAt,
@@ -87,24 +84,17 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
         JOIN service_request_items sri ON sr.id = sri.request_id
         JOIN services s ON sri.service_id = s.id
         LEFT JOIN users u ON p.recorded_by = u.id
-        WHERE sr.patient_id = ?
+        WHERE sr.patient_id = ? AND sr.payment_status = 'Paid'
         GROUP BY sr.id, s.name
-      )
-      UNION ALL
-      (
-        -- Lab Test Payments
+
+        UNION ALL
+
         SELECT 
           lr.id,
           s.name as service,
           SUM(p.amount) as amount,
           GROUP_CONCAT(
-            CONCAT(
-              p.method, 
-              ': GH₵', 
-              FORMAT(p.amount, 2)
-            )
-            ORDER BY p.recorded_at
-            SEPARATOR ', '
+            CONCAT(p.method, ': GH₵', FORMAT(p.amount, 2))
           ) as payment_methods,
           MAX(p.status) as status,
           MAX(p.recorded_at) as createdAt,
@@ -114,16 +104,28 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
         JOIN payments p ON ltp.payment_id = p.id
         JOIN services s ON lr.service_id = s.id
         LEFT JOIN users u ON p.recorded_by = u.id
-        WHERE lr.patient_id = ?
+        WHERE lr.patient_id = ? AND lr.payment_status = 'Paid'
         GROUP BY lr.id, s.name
       )
       ORDER BY createdAt DESC
-    `,
+      `,
       [patientId, patientId]
     );
 
-    console.log("Payment history for patient:", patientId, payments);
-    res.json(payments);
+    // Calculate pagination
+    const totalItems = allPayments.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const paginatedPayments = allPayments.slice(offset, offset + limit);
+
+    res.json({
+      items: paginatedPayments,
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error("Error fetching payment history:", error);
     res.status(500).json({ error: "Failed to fetch payment history" });

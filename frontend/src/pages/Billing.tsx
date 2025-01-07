@@ -98,6 +98,8 @@ export function BillingPage() {
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [view, setView] = useState<"pending" | "history">("pending");
   const [waitingListCount, setWaitingListCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (clinicId) {
@@ -112,6 +114,8 @@ export function BillingPage() {
       setPatient(null);
       setItems([]);
       setHistoryItems([]);
+      setTotalPages(1);
+      setPage(1);
       return;
     }
 
@@ -126,6 +130,8 @@ export function BillingPage() {
         setPatient(null);
         setItems([]);
         setHistoryItems([]);
+        setTotalPages(1);
+        setPage(1);
         return;
       }
 
@@ -133,15 +139,21 @@ export function BillingPage() {
 
       const [pendingResponse, historyResponse] = await Promise.all([
         api.get(`/billing/pending/${patientData.id}`),
-        api.get(`/billing/history/${patientData.id}`),
+        api.get(`/billing/history/${patientData.id}`, {
+          params: { page: 1 },
+        }),
       ]);
 
       setItems(pendingResponse.data);
-      setHistoryItems(historyResponse.data);
+      setHistoryItems(historyResponse.data.items);
+      setTotalPages(historyResponse.data.meta.totalPages);
+      setPage(1);
     } catch (error) {
       setPatient(null);
       setItems([]);
       setHistoryItems([]);
+      setTotalPages(1);
+      setPage(1);
     }
   };
 
@@ -206,12 +218,16 @@ export function BillingPage() {
     onClinicIdChange(item.clinicId);
   };
 
-  const fetchPaymentHistory = async () => {
+  const fetchPaymentHistory = async (pageNum = 1) => {
     if (!patient) return;
 
     try {
-      const response = await api.get(`/billing/history/${patient.id}`);
-      setHistoryItems(response.data);
+      const response = await api.get(`/billing/history/${patient.id}`, {
+        params: { page: pageNum },
+      });
+      setHistoryItems(response.data.items);
+      setTotalPages(response.data.meta.totalPages);
+      setPage(pageNum);
     } catch (error) {
       toast.error("Failed to fetch payment history");
     }
@@ -296,7 +312,7 @@ export function BillingPage() {
                     variant="outline"
                     onClick={() => {
                       if (view === "pending") {
-                        fetchPaymentHistory();
+                        fetchPaymentHistory(1);
                         setView("history");
                       } else {
                         setView("pending");
@@ -306,18 +322,13 @@ export function BillingPage() {
                     {view === "pending" ? (
                       <>
                         View History
-                        {/* {patient && historyItems.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {historyItems.length}
-                          </Badge>
-                        )} */}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     ) : (
                       <>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         View Pending
-                        {patient && items.length > 0 && (
+                        {patient && items && items.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
                             {items.length}
                           </Badge>
@@ -484,6 +495,30 @@ export function BillingPage() {
             onClose={() => setShowWaitingList(false)}
             onSelect={handleWaitingListSelect}
           />
+        )}
+
+        {view === "history" && totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchPaymentHistory(page - 1)}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchPaymentHistory(page + 1)}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
         )}
       </div>
     </DashboardLayout>

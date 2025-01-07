@@ -250,3 +250,33 @@ export const searchPatients = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Failed to search patients" });
   }
 };
+
+export const searchPatientByClinicId = async (req: Request, res: Response) => {
+  try {
+    const { clinicId } = req.query;
+
+    const [patients] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        id,
+        clinic_id as clinicId,
+        first_name as firstName,
+        middle_name as middleName,
+        last_name as lastName,
+        date_of_birth as dateOfBirth,
+        gender
+      FROM patients 
+      WHERE clinic_id = ?
+      LIMIT 1`,
+      [clinicId]
+    );
+
+    if (!patients.length) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    res.json(patients[0]);
+  } catch (error) {
+    console.error("Error searching patient:", error);
+    res.status(500).json({ message: "Failed to search patient" });
+  }
+};

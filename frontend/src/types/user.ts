@@ -1,12 +1,14 @@
-export type UserRole = 'admin' | 'user';
-export type AccessType = 
-  | 'settings'
-  | 'appointments'
-  | 'records'
-  | 'lab'
-  | 'xray'
-  | 'pharmacy'
-  | 'inventory';
+export type UserRole = "admin" | "user";
+export type AccessType =
+  | "settings"
+  | "appointments"
+  | "records"
+  | "lab"
+  | "xray"
+  | "pharmacy"
+  | "inventory"
+  | "consultation"
+  | "billing";
 
 export interface User {
   id: number;
@@ -22,4 +24,4 @@ export interface CreateUserData {
   fullName: string;
   role: UserRole;
   access: AccessType[];
-} 
+}

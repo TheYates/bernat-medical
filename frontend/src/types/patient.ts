@@ -4,7 +4,7 @@ export interface Patient {
   id: string;
   clinicId: string;
   firstName: string;
-  middleName: string;
+  middleName?: string;
   lastName: string;
   dateOfBirth: string;
   gender: string;

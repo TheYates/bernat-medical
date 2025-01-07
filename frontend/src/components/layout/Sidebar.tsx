@@ -3,8 +3,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Users,
-  Calendar,
   Settings,
   ClipboardList,
   Home,
@@ -15,10 +13,9 @@ import {
   UserPlus,
   Activity,
   FlaskConical,
-  LayoutDashboard,
-  Stethoscope,
   Scan,
   Pill,
+  Receipt,
 } from "lucide-react";
 import { AccessType } from "@/types/user";
 import { Icons } from "@/components/icons";
@@ -75,7 +72,6 @@ const links: SidebarLink[] = [
     roles: ["admin", "user"],
     requiredAccess: "lab",
   },
-
   {
     icon: Scan,
     label: "X-ray/Scan",
@@ -83,7 +79,13 @@ const links: SidebarLink[] = [
     roles: ["admin", "user"],
     requiredAccess: "xray",
   },
-
+  {
+    icon: Receipt,
+    label: "Billing",
+    href: "/dashboard/billing",
+    roles: ["admin", "user"],
+    requiredAccess: "billing",
+  },
   {
     icon: Pill,
     label: "Pharmacy",

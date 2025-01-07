@@ -36,53 +36,51 @@ export const createServiceRequest = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
-  console.log("Received request:", {
-    url: req.url,
-    method: req.method,
-    body: req.body,
-  });
   const connection = await pool.getConnection();
 
   try {
-    const { patientId, services } = req.body;
-
     await connection.beginTransaction();
+    const { patientId, serviceId } = req.body;
 
-    const [result] = (await connection.execute(
-      "INSERT INTO service_requests (patient_id) VALUES (?)",
-      [patientId]
-    )) as [ResultSetHeader, any];
-
-    for (const serviceId of services) {
-      const [serviceData] = (await connection.execute(
-        "SELECT price FROM services WHERE id = ?",
-        [serviceId]
-      )) as [RowDataPacket[], any];
-
-      await connection.execute(
-        "INSERT INTO service_request_items (request_id, service_id, price_at_time) VALUES (?, ?, ?)",
-        [result.insertId, serviceId, serviceData[0].price]
-      );
+    // Add validation
+    if (!patientId || !serviceId) {
+      throw new Error("Patient ID and Service ID are required");
     }
 
-    await createAuditLog({
-      userId: req.user?.id || 0,
-      actionType: "create",
-      entityType: "service_request",
-      entityId: result.insertId.toString(),
-      details: { patientId, services },
-      ipAddress: req.ip,
-    });
+    console.log("Creating service request:", { patientId, serviceId }); // Debug log
+
+    // Create service request
+    const [result] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO service_requests (
+        patient_id, 
+        status,
+        payment_status
+      ) VALUES (?, 'Pending', 'Pending')`,
+      [patientId]
+    );
+
+    const requestId = result.insertId;
+
+    // Create service request item
+    await connection.execute(
+      `INSERT INTO service_request_items (request_id, service_id, price_at_time) 
+       SELECT ?, ?, price 
+       FROM services 
+       WHERE id = ?`,
+      [requestId, serviceId, serviceId]
+    );
 
     await connection.commit();
-    res.status(201).json({
-      message: "Service request created",
-      requestId: result.insertId,
-    });
+    res.json({ id: requestId });
   } catch (error) {
     await connection.rollback();
     console.error("Error creating service request:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to create service request",
+    });
   } finally {
     connection.release();
   }

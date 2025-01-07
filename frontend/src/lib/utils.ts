@@ -1,25 +1,28 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { format, parseISO, isValid } from 'date-fns';
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { format, parseISO, isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 export const formatPrice = (price: number | string) => {
   return `$${Number(price).toFixed(2)}`;
 };
 
-export function formatDate(date: string | Date | null | undefined, formatStr: string = 'PP'): string {
-  if (!date) return '-';
-  
+export function formatDate(
+  date: string | Date | null | undefined,
+  formatStr: string = "PP"
+): string {
+  if (!date) return "-";
+
   try {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    if (!isValid(dateObj)) return '-';
+    const dateObj = typeof date === "string" ? parseISO(date) : date;
+    if (!isValid(dateObj)) return "-";
     return format(dateObj, formatStr);
   } catch (error) {
-    console.error('Error formatting date:', error);
-    return '-';
+    console.error("Error formatting date:", error);
+    return "-";
   }
 }
 
@@ -28,15 +31,21 @@ export function calculateAge(dateOfBirth: string): number {
   const birthDate = new Date(dateOfBirth);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
     age--;
   }
-  
+
   return age;
 }
 
-export function calculateBMI(weight: string | number, height: string | number): number {
+export function calculateBMI(
+  weight: string | number,
+  height: string | number
+): number {
   const w = Number(weight);
   const h = Number(height) / 100; // Convert cm to meters
   if (!w || !h) return 0;
@@ -44,8 +53,5 @@ export function calculateBMI(weight: string | number, height: string | number): 
 }
 
 export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP'
-  }).format(amount);
+  return `GH₵${amount.toLocaleString()}`;
 };

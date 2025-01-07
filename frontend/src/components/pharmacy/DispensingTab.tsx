@@ -74,11 +74,24 @@ const formSchema = z.object({
   clinicId: z.string().min(1, "Clinic ID is required"),
 });
 
+const paymentMethods = [
+  { id: "card", label: "Card" },
+  { id: "mobile", label: "Mobile Money" },
+  { id: "cash", label: "Cash" },
+  { id: "insurance", label: "Insurance" },
+];
+
 export function DispensingTab() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<
+    string[]
+  >([]);
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>(
+    {}
+  );
   const [showWaitingList, setShowWaitingList] = useState(false);
   const [waitingList, setWaitingList] = useState<WaitingListItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -145,6 +158,37 @@ export function DispensingTab() {
     } finally {
       setIsLoadingHistory(false);
     }
+  };
+
+  const handlePaymentMethodChange = (method: string) => {
+    setSelectedPaymentMethods((prev) => {
+      const isSelected = prev.includes(method);
+      const newMethods = isSelected
+        ? prev.filter((m) => m !== method)
+        : [...prev, method];
+
+      // If only one method selected, set full amount
+      if (newMethods.length === 1) {
+        setPaymentAmounts({ [newMethods[0]]: totalAmount });
+      }
+      // If switching to multiple methods, reset amounts
+      else if (newMethods.length > 1) {
+        setPaymentAmounts({});
+      }
+      // If no methods selected, reset amounts
+      else {
+        setPaymentAmounts({});
+      }
+
+      return newMethods;
+    });
+  };
+
+  const handlePaymentAmountChange = (method: string, amount: string) => {
+    setPaymentAmounts((prev) => ({
+      ...prev,
+      [method]: parseFloat(amount) || 0,
+    }));
   };
 
   const handleDispense = async () => {
@@ -272,9 +316,15 @@ export function DispensingTab() {
               {showHistory ? (
                 <>
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold">Prescription History</h3>
+                    <div>
+                      <h3 className="font-semibold">Prescription History</h3>
+
+                      <p className="text-sm text-muted-foreground">
+                        View prescriptions that have been dispensed
+                      </p>
+                    </div>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setShowHistory(false)}
                     >
                       ← Back to Prescriptions
@@ -302,8 +352,8 @@ export function DispensingTab() {
                       ) : prescriptionHistory.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={5}
-                            className="text-center h-24 text-muted-foreground"
+                            colSpan={6}
+                            className="text-center h-12 text-muted-foreground"
                           >
                             No prescription history found
                           </TableCell>

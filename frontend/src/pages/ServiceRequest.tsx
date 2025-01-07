@@ -347,15 +347,6 @@ export function ServiceRequest() {
     );
   };
 
-  // Update the form submission handler
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    if (selectedServices.length === 0) {
-      toast.error("Please select at least one service");
-      return;
-    }
-    setShowCreateDialog(true);
-  };
-
   // Add this debounced function near your other handlers
   const debouncedClinicIdSearch = debounce((value: string) => {
     if (value.length >= 6) {
@@ -384,8 +375,77 @@ export function ServiceRequest() {
     fetchHistory();
   }, [patient]); // Depend on patient changes
 
-  const createServiceRequest = async (data: ServiceRequestData) => {
-    return await api.post("/services/request", data);
+  const handleServiceSelect = async (serviceId: number) => {
+    if (!patient) {
+      toast.error("Please select a patient first");
+      return;
+    }
+
+    try {
+      const data = {
+        patientId: Number(patient.id),
+        serviceId: Number(serviceId),
+      };
+
+      console.log("Sending service request:", data);
+
+      const response = await api.post("/services/request", data);
+
+      toast.success("Service request created successfully");
+
+      // Refresh the history after successful creation
+      if (patient?.id) {
+        const historyResponse = await api.get(
+          `/services/requests/history/${patient.id}`
+        );
+        setRequestHistory(historyResponse.data);
+      }
+    } catch (error: any) {
+      console.error("Service request error:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to create service request"
+      );
+    }
+  };
+
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    if (!patient) {
+      toast.error("Please select a patient first");
+      return;
+    }
+
+    if (selectedServices.length === 0) {
+      toast.error("Please select at least one service");
+      return;
+    }
+
+    // Show confirmation dialog instead of creating requests immediately
+    setShowCreateDialog(true);
+  };
+
+  const handleCreateRequests = async () => {
+    try {
+      // Create all service requests
+      for (const service of selectedServices) {
+        await handleServiceSelect(service.id);
+      }
+
+      // Clear selections after successful creation
+      setSelectedServices([]);
+      setShowCreateDialog(false);
+      toast.success("Service requests created successfully");
+
+      // Refresh history
+      if (patient?.id) {
+        const historyResponse = await api.get(
+          `/services/requests/history/${patient.id}`
+        );
+        setRequestHistory(historyResponse.data);
+      }
+    } catch (error) {
+      console.error("Error creating service requests:", error);
+      toast.error("Failed to create service requests");
+    }
   };
 
   return (
@@ -740,49 +800,35 @@ export function ServiceRequest() {
       </div>
 
       {/* Create Request Confirmation Dialog */}
-      <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Service Request</AlertDialogTitle>
-            <AlertDialogDescription>
-              Please review the service request details:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="rounded-lg border p-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="font-medium">Patient:</span>{" "}
-                {patient?.firstName} {patient?.lastName}
-              </div>
-              <div>
-                <span className="font-medium">Total Amount:</span>{" "}
-                {formatCurrency(
-                  selectedServices.reduce(
-                    (total, service) => total + Number(service.price),
-                    0
-                  )
-                )}
-              </div>
+      {showCreateDialog && (
+        <Dialog open onOpenChange={setShowCreateDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Service Requests</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to create the following service requests?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedServices.map((service) => (
+                <div key={service.id} className="flex justify-between">
+                  <span>{service.name}</span>
+                  <span>{formatCurrency(service.price)}</span>
+                </div>
+              ))}
             </div>
-            <div className="space-y-1">
-              <span className="font-medium">Services:</span>
-              <ul className="list-disc list-inside">
-                {selectedServices.map((service) => (
-                  <li key={service.id} className="text-sm">
-                    {service.name} ({formatCurrency(Number(service.price))})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreateRequest}>
-              Create Request
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateRequests}>Create Requests</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Cancel Request Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

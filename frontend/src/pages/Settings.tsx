@@ -1,9 +1,10 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserManagement } from '@/components/settings/UserManagement';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ServiceManagement } from '@/components/settings/ServiceManagement';
-import { GeneralSettings } from '@/components/settings/GeneralSettings';
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserManagement } from "@/components/settings/UserManagement";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ServiceManagement } from "@/components/settings/ServiceManagement";
+import { GeneralSettings } from "@/components/settings/GeneralSettings";
+import { PatientManagement } from "@/components/settings/PatientManagement";
 
 export function SettingsPage() {
   return (
@@ -21,15 +22,27 @@ export function SettingsPage() {
           <CardContent>
             <Tabs defaultValue="users" className="space-y-4">
               <TabsList className="w-full justify-start">
-                <TabsTrigger value="users" className="flex-1">User Management</TabsTrigger>
-                <TabsTrigger value="services" className="flex-1">Services</TabsTrigger>
-                <TabsTrigger value="general" className="flex-1">General</TabsTrigger>
+                <TabsTrigger value="users" className="flex-1">
+                  User Management
+                </TabsTrigger>
+                <TabsTrigger value="services" className="flex-1">
+                  Services
+                </TabsTrigger>
+                <TabsTrigger value="patients" className="flex-1">
+                  Patients
+                </TabsTrigger>
+                <TabsTrigger value="general" className="flex-1">
+                  General
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="users" className="space-y-4">
                 <UserManagement />
               </TabsContent>
               <TabsContent value="services" className="space-y-4">
                 <ServiceManagement />
+              </TabsContent>
+              <TabsContent value="patients" className="space-y-4">
+                <PatientManagement />
               </TabsContent>
               <TabsContent value="general">
                 <GeneralSettings />
@@ -40,4 +53,4 @@ export function SettingsPage() {
       </div>
     </DashboardLayout>
   );
-} 
+}

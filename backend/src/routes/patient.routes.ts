@@ -5,6 +5,8 @@ import {
   searchPatients,
   getLastPatientId,
   searchPatientByClinicId,
+  updatePatient,
+  deletePatient,
 } from "../controllers/patient.controller";
 import { authenticate } from "../middleware/auth";
 
@@ -15,5 +17,7 @@ router.get("/search", authenticate, searchPatients);
 router.get("/search-by-id", authenticate, searchPatientByClinicId);
 router.post("/register", authenticate, registerPatient);
 router.get("/:clinicId", authenticate, getPatientByClinicId);
+router.put("/:clinicId", authenticate, updatePatient);
+router.delete("/:clinicId", authenticate, deletePatient);
 
 export default router;

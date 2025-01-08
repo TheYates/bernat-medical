@@ -193,47 +193,74 @@ export const getPatientByClinicId = async (req: Request, res: Response) => {
 
 export const searchPatients = async (req: Request, res: Response) => {
   try {
-    const { searchTerm, gender, maritalStatus } = req.query;
+    const {
+      searchTerm,
+      gender,
+      maritalStatus,
+      page = 1,
+      pageSize = 10,
+    } = req.query;
+    const offset = (Number(page) - 1) * Number(pageSize);
 
-    let query = `
-      SELECT id, clinic_id, first_name, middle_name, last_name,
-             date_of_birth, gender, contact, marital_status
+    let countQuery = `
+      SELECT COUNT(*) as total
       FROM patients
       WHERE 1=1
     `;
+
+    let query = `
+      SELECT id, clinic_id, first_name, middle_name, last_name,
+             date_of_birth, gender, contact, marital_status,
+             residence, emergency_contact_name, emergency_contact_number,
+             emergency_contact_relation, created_at as registeredAt
+      FROM patients
+      WHERE 1=1
+    `;
+
     const params: any[] = [];
+    const countParams: any[] = [];
 
     if (searchTerm) {
-      query += ` AND (
+      const whereClause = ` AND (
         first_name LIKE ? OR
         middle_name LIKE ? OR
         last_name LIKE ? OR
         contact LIKE ? OR
         clinic_id LIKE ?
       )`;
+      query += whereClause;
+      countQuery += whereClause;
       const term = `%${searchTerm}%`;
       params.push(term, term, term, term, term);
+      countParams.push(term, term, term, term, term);
     }
 
     if (gender && gender !== "any") {
       query += ` AND gender = ?`;
+      countQuery += ` AND gender = ?`;
       params.push(gender);
+      countParams.push(gender);
     }
 
     if (maritalStatus && maritalStatus !== "any") {
       query += ` AND marital_status = ?`;
+      countQuery += ` AND marital_status = ?`;
       params.push(maritalStatus);
+      countParams.push(maritalStatus);
     }
 
-    query += ` ORDER BY first_name ASC LIMIT 10`;
+    const limit = Number(pageSize);
+    const offsetVal = Number(offset);
+    query += ` ORDER BY first_name ASC LIMIT ${limit} OFFSET ${offsetVal}`;
 
-    const [patients] = (await pool.execute(query, params)) as [
-      RowDataPacket[],
-      any
-    ];
+    const [[countResult]] = await pool.execute<RowDataPacket[]>(
+      countQuery,
+      countParams
+    );
+    const [patients] = await pool.execute<RowDataPacket[]>(query, params);
 
-    res.json(
-      patients.map((p) => ({
+    res.json({
+      patients: (patients as RowDataPacket[]).map((p) => ({
         id: p.id,
         clinicId: p.clinic_id,
         firstName: p.first_name,
@@ -243,8 +270,16 @@ export const searchPatients = async (req: Request, res: Response) => {
         gender: p.gender,
         contact: p.contact,
         maritalStatus: p.marital_status,
-      }))
-    );
+        residence: p.residence,
+        emergencyContactName: p.emergency_contact_name,
+        emergencyContactNumber: p.emergency_contact_number,
+        emergencyContactRelation: p.emergency_contact_relation,
+        registeredAt: p.registeredAt,
+      })),
+      total: (countResult as RowDataPacket).total,
+      page: Number(page),
+      pageSize: Number(pageSize),
+    });
   } catch (error) {
     console.error("Error searching patients:", error);
     res.status(500).json({ message: "Failed to search patients" });
@@ -278,5 +313,84 @@ export const searchPatientByClinicId = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error searching patient:", error);
     res.status(500).json({ message: "Failed to search patient" });
+  }
+};
+
+export const updatePatient = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { clinicId } = req.params;
+    const updates = req.body;
+
+    await pool.execute(
+      `UPDATE patients SET 
+        first_name = ?,
+        middle_name = ?,
+        last_name = ?,
+        date_of_birth = ?,
+        gender = ?,
+        contact = ?,
+        marital_status = ?,
+        residence = ?,
+        emergency_contact_name = ?,
+        emergency_contact_number = ?,
+        emergency_contact_relation = ?
+      WHERE clinic_id = ?`,
+      [
+        updates.firstName,
+        updates.middleName,
+        updates.lastName,
+        updates.dateOfBirth,
+        updates.gender,
+        updates.contact,
+        updates.maritalStatus,
+        updates.residence,
+        updates.emergencyContactName,
+        updates.emergencyContactNumber,
+        updates.emergencyContactRelation,
+        clinicId,
+      ]
+    );
+
+    await createAuditLog({
+      userId: req.user?.id || 0,
+      actionType: "update",
+      entityType: "patient",
+      entityId: clinicId,
+      details: updates,
+      ipAddress: req.ip || "unknown",
+    });
+
+    res.json({ message: "Patient updated successfully" });
+  } catch (error) {
+    console.error("Error updating patient:", error);
+    res.status(500).json({ message: "Failed to update patient" });
+  }
+};
+
+export const deletePatient = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const { clinicId } = req.params;
+
+    await pool.execute("DELETE FROM patients WHERE clinic_id = ?", [clinicId]);
+
+    await createAuditLog({
+      userId: req.user?.id || 0,
+      actionType: "delete",
+      entityType: "patient",
+      entityId: clinicId,
+      details: { clinicId },
+      ipAddress: req.ip || "unknown",
+    });
+
+    res.json({ message: "Patient deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting patient:", error);
+    res.status(500).json({ message: "Failed to delete patient" });
   }
 };

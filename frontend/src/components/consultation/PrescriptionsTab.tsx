@@ -226,7 +226,9 @@ export function PrescriptionsTab({
     if (!patient?.id) return;
     setIsLoadingHistory(true);
     try {
-      const response = await prescriptionsService.getHistory(patient.id);
+      const response = await prescriptionsService.getHistory(
+        patient.id.toString()
+      );
       setPrescriptionHistory(response);
     } catch (error) {
       console.error("Error fetching prescription history:", error);

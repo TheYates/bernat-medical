@@ -10,6 +10,7 @@ export interface Drug {
   minimumStock: number;
   salePricePerUnit: number;
   active: boolean;
+  unit: string;
 }
 
 export interface PrescriptionItem {
@@ -31,10 +32,12 @@ export interface Prescription {
   id: string;
   createdAt: string;
   status: "pending" | "dispensed";
+  dispensed: boolean;
   drug: {
     id: string;
     genericName: string;
     strength: string;
+    salePricePerUnit: number;
   };
   dosage: string;
   frequency: string;

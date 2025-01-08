@@ -68,13 +68,13 @@ export function ConsultationTabs({ patient, form }: ConsultationTabsProps) {
   const handleAddDrug = useCallback((drug: Drug) => {
     const prescriptionItem: PrescriptionItem = {
       id: generateId(),
-      drugId: drug.id,
+      drugId: drug.id.toString(),
       drug,
       prescriptionId: "",
       dosage: "1 tablet",
       frequency: "Once daily",
       duration: "1 days",
-      route: "oral",
+      route: "Oral",
       quantity: 1,
       salePricePerUnit: Number(drug.salePricePerUnit),
       createdAt: new Date().toISOString(),
@@ -112,10 +112,14 @@ export function ConsultationTabs({ patient, form }: ConsultationTabsProps) {
           frequency: drug.frequency,
           duration: drug.duration,
           route: drug.route,
-          quantity: drug.quantity,
+          quantity: parseInt(drug.quantity.toString(), 10),
         })),
         instructions,
       });
+
+      // Show success toast only here
+      toast.success("Prescriptions saved successfully");
+
       // Reset form
       setSelectedDrugs([]);
       setInstructions("");
@@ -123,8 +127,7 @@ export function ConsultationTabs({ patient, form }: ConsultationTabsProps) {
       // Reload history
       await loadPrescriptionHistory();
     } catch (error) {
-      // console.error('Error saving prescription:', error);
-      throw error;
+      throw error; // Let PrescriptionsTab handle the error toast
     }
   }, [patient?.id, selectedDrugs, instructions, loadPrescriptionHistory]);
 

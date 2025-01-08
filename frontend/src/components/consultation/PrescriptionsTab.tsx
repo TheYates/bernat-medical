@@ -83,21 +83,17 @@ interface PrescriptionsTabProps {
   isLoadingDrugs?: boolean;
 }
 
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "";
-  try {
-    return format(new Date(dateString), "MMM d, yyyy h:mm a");
-  } catch (error) {
-    console.error("Invalid date:", dateString);
-    return "";
-  }
-};
-
 const prescriptionColumns = [
   {
     header: "Date",
-    cell: (prescription: Prescription) =>
-      format(new Date(prescription.createdAt), "dd MMM yyyy"),
+    cell: (prescription: Prescription) => (
+      <div>
+        <p>{format(new Date(prescription.createdAt), "dd MMM yyyy")}</p>
+        <p className="text-sm text-muted-foreground">
+          {format(new Date(prescription.createdAt), "h:mm a")}
+        </p>
+      </div>
+    ),
   },
   {
     header: "Drug",
@@ -105,7 +101,8 @@ const prescriptionColumns = [
       <div>
         <p className="font-medium">{prescription.drug.genericName}</p>
         <p className="text-sm text-muted-foreground">
-          {prescription.drug.strength}
+          {prescription.drug.strength} •{" "}
+          {formatCurrency(prescription.drug.salePricePerUnit || 0)}
         </p>
       </div>
     ),
@@ -115,12 +112,26 @@ const prescriptionColumns = [
     cell: (prescription: Prescription) => prescription.dosage,
   },
   {
+    header: "Frequency",
+    cell: (prescription: Prescription) => prescription.frequency,
+  },
+  {
+    header: "Duration",
+    cell: (prescription: Prescription) => prescription.duration,
+  },
+  {
+    header: "Route",
+    cell: (prescription: Prescription) => prescription.route,
+  },
+  {
+    header: "Quantity",
+    cell: (prescription: Prescription) => prescription.quantity,
+  },
+  {
     header: "Status",
     cell: (prescription: Prescription) => (
-      <Badge
-        variant={prescription.status === "dispensed" ? "success" : "secondary"}
-      >
-        {prescription.status}
+      <Badge variant={prescription.dispensed ? "success" : "secondary"}>
+        {prescription.dispensed ? "Dispensed" : "Pending"}
       </Badge>
     ),
   },
@@ -162,20 +173,8 @@ export function PrescriptionsTab({
       return;
     }
 
-    try {
-      await onSavePrescriptions(selectedDrugs);
-      // Fetch updated history first
-      const history = await prescriptionsService.getHistory(
-        patient!.id.toString()
-      );
-      setPrescriptionHistory(history);
-
-      toast.success("Prescriptions saved successfully");
-      clearSelectedDrugs();
-      setShowHistory(true);
-    } catch (error) {
-      toast.error("Failed to save prescriptions");
-    }
+    // Just show confirmation dialog
+    setShowConfirmation(true);
   };
 
   const confirmSave = async (e: React.MouseEvent) => {
@@ -184,13 +183,6 @@ export function PrescriptionsTab({
 
     try {
       await onSavePrescriptions(selectedDrugs);
-      // Fetch updated history first
-      const history = await prescriptionsService.getHistory(
-        patient!.id.toString()
-      );
-      setPrescriptionHistory(history);
-
-      toast.success("Prescriptions saved successfully");
       setShowConfirmation(false);
       clearSelectedDrugs();
       setShowHistory(true);
@@ -217,30 +209,30 @@ export function PrescriptionsTab({
     setSelectedDrugs((prev) => [...prev, prescriptionItem]);
   };
 
-  const handleDrugSelect = useCallback(
-    (drug: Drug) => {
-      const prescriptionItem: PrescriptionItem = {
-        id: generateId(),
-        drugId: drug.id.toString(),
-        drug: {
-          ...drug,
-          salePricePerUnit: Number(drug.salePricePerUnit),
-        },
-        prescriptionId: "",
-        dosage: "1 tablet",
-        frequency: "Once daily",
-        duration: "1 days",
-        route: "Oral",
-        quantity: 1,
-        salePricePerUnit: Number(drug.salePricePerUnit),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+  const handleDrugSelect = (drug: Drug) => {
+    onAddDrug(drug);
+    setOpen(false); // Close the combobox after selection
+    setSearchTerm(""); // Optional: clear the search term
+  };
 
-      onAddDrug(drug);
-      setOpen(false);
+  const handleDrugToggle = useCallback(
+    (drug: Drug) => {
+      const isSelected = selectedDrugs.some(
+        (selected) => selected.drugId === drug.id.toString()
+      );
+
+      if (isSelected) {
+        // Remove drug
+        setSelectedDrugs((prev) =>
+          prev.filter((item) => item.drugId !== drug.id.toString())
+        );
+      } else {
+        // Add drug
+        onAddDrug(drug);
+      }
+      setOpen(true); // Keep popover open
     },
-    [onAddDrug, setOpen]
+    [selectedDrugs, onAddDrug]
   );
 
   // Update drug handler
@@ -334,7 +326,7 @@ export function PrescriptionsTab({
                 </p>
               </div>
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -373,10 +365,10 @@ export function PrescriptionsTab({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  prescriptionHistory.map((prescription, index) => (
-                    <TableRow key={index}>
-                      {prescriptionColumns.map((column, colIndex) => (
-                        <TableCell key={colIndex}>
+                  prescriptionHistory.map((prescription) => (
+                    <TableRow key={prescription.id}>
+                      {prescriptionColumns.map((column, index) => (
+                        <TableCell key={index}>
                           {column.cell(prescription)}
                         </TableCell>
                       ))}
@@ -400,7 +392,7 @@ export function PrescriptionsTab({
                 onClick={handleViewHistory}
                 className="flex items-center gap-2"
               >
-                View History
+                View History →
                 {prescriptionHistory.length > 0 && (
                   <Badge variant="secondary" className="ml-2">
                     {prescriptionHistory.length}
@@ -414,7 +406,6 @@ export function PrescriptionsTab({
               <Popover
                 open={open}
                 onOpenChange={(isOpen) => {
-                  console.log("Popover open state changed:", isOpen);
                   setOpen(isOpen);
                 }}
               >
@@ -458,11 +449,14 @@ export function PrescriptionsTab({
                             key={drug.id}
                             value={drug.id}
                             onSelect={() => handleDrugSelect(drug)}
+                            className="cursor-pointer"
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                selectedDrugs.find((d) => d.drugId === drug.id)
+                                selectedDrugs.some(
+                                  (d) => d.drugId === drug.id.toString()
+                                )
                                   ? "opacity-100"
                                   : "opacity-0"
                               )}
@@ -499,7 +493,7 @@ export function PrescriptionsTab({
 
             {/* Selected Drugs Table */}
             {selectedDrugs.length > 0 && (
-              <Card>
+              <Card className="mt-4">
                 <CardContent className="p-4">
                   <h4 className="font-medium mb-4">Prescription Details</h4>
                   <Table>

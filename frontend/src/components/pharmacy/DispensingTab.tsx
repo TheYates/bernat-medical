@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -41,9 +41,31 @@ import { format, parseISO } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { PaymentDialog } from "@/components/shared/payment-dialog";
 import { WaitingListItem } from "@/services/waiting-list.service";
+import { Banknote, CreditCard } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface Prescription {
   id: string;
+  session_id?: string;
+  prescriptions?: Array<{
+    id: string;
+    drug: {
+      id: string;
+      genericName: string;
+      strength: string;
+      form: string;
+    };
+    dosage: string;
+    frequency: string;
+    duration: string;
+    quantity: number;
+    route: string;
+  }>;
   drug: {
     id: string;
     genericName: string;
@@ -56,6 +78,7 @@ interface Prescription {
   frequency: string;
   duration: string;
   quantity: number;
+  route: string;
   dispensed: boolean;
   payments?: Array<{ method: string }>;
   status?: string;
@@ -99,6 +122,7 @@ export function DispensingTab() {
     Prescription[]
   >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -251,6 +275,16 @@ export function DispensingTab() {
     }
   };
 
+  const toggleRow = (id: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedRows(newExpanded);
+  };
+
   return (
     <div className="max-w-[960px] mx-auto">
       <Card>
@@ -336,8 +370,8 @@ export function DispensingTab() {
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Drug</TableHead>
-                        <TableHead>Dosage</TableHead>
-                        <TableHead>Quantity</TableHead>
+                        <TableHead>Prescription Details</TableHead>
+                        <TableHead>Amount</TableHead>
                         <TableHead>Payment</TableHead>
                         <TableHead>Dispensed By</TableHead>
                       </TableRow>
@@ -360,43 +394,137 @@ export function DispensingTab() {
                         </TableRow>
                       ) : (
                         prescriptionHistory.map((prescription) => (
-                          <TableRow key={prescription.id}>
+                          <TableRow key={prescription.session_id}>
                             <TableCell>
                               {formatDate(prescription.created_at)}
                             </TableCell>
                             <TableCell>
-                              <div>
-                                <p className="font-medium">
-                                  {prescription.drug?.genericName || "N/A"}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {prescription.drug?.strength || "N/A"}
-                                </p>
+                              <div className="space-y-2">
+                                {(prescription.prescriptions || []).map(
+                                  (drug: any, index: number) => (
+                                    <div
+                                      key={`${prescription.session_id}-${drug.id}-name-${index}`}
+                                    >
+                                      <p className="font-medium">
+                                        {drug.drug.genericName}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {drug.drug.strength} {drug.drug.form}
+                                      </p>
+                                    </div>
+                                  )
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
-                              {prescription.dosage} • {prescription.frequency}
+                              <div className="space-y-2">
+                                {(prescription.prescriptions || []).map(
+                                  (drug: any, index: number) => (
+                                    <HoverCard
+                                      key={`${prescription.session_id}-${drug.id}-details-${index}`}
+                                    >
+                                      <HoverCardTrigger asChild>
+                                        <Button variant="link" className="p-0">
+                                          <div className="text-left">
+                                            <span>
+                                              {drug.dosage} • {drug.frequency}
+                                              {drug.route && ` • ${drug.route}`}
+                                            </span>
+                                            <span className="block text-sm text-muted-foreground">
+                                              {drug.duration}
+                                            </span>
+                                          </div>
+                                        </Button>
+                                      </HoverCardTrigger>
+                                      <HoverCardContent className="w-80">
+                                        <div className="space-y-2">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">
+                                                Dosage
+                                              </p>
+                                              <p className="text-sm">
+                                                {drug.dosage}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">
+                                                Frequency
+                                              </p>
+                                              <p className="text-sm">
+                                                {drug.frequency}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">
+                                                Duration
+                                              </p>
+                                              <p className="text-sm">
+                                                {drug.duration}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">
+                                                Quantity
+                                              </p>
+                                              <p className="text-sm">
+                                                {drug.quantity}
+                                              </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-sm font-medium">
+                                                Route
+                                              </p>
+                                              <p className="text-sm">
+                                                {drug.route || "-"}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </HoverCardContent>
+                                    </HoverCard>
+                                  )
+                                )}
+                              </div>
                             </TableCell>
-                            <TableCell>{prescription.quantity}</TableCell>
                             <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex gap-1">
-                                  {prescription.payment_methods?.map(
-                                    (method: string) => (
-                                      <Badge
-                                        key={method}
-                                        variant="secondary"
-                                        className="capitalize"
+                              {formatCurrency(prescription.total_amount || 0)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-4">
+                                {prescription.payment_methods?.map(
+                                  (method: string, index: number) => {
+                                    const parts = method.split(":");
+                                    const methodName = parts[0].trim();
+                                    const amount = parts[1]?.trim();
+
+                                    return (
+                                      <div
+                                        key={`${prescription.session_id}-payment-${index}`}
+                                        className="flex items-center gap-2"
                                       >
-                                        {method}
-                                      </Badge>
-                                    )
-                                  )}
-                                </div>
-                                {prescription.total_amount && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {formatCurrency(prescription.total_amount)}
-                                  </p>
+                                        {methodName
+                                          .toLowerCase()
+                                          .includes("cash") ? (
+                                          <Banknote className="h-4 w-4" />
+                                        ) : (
+                                          <CreditCard className="h-4 w-4" />
+                                        )}
+                                        <div className="flex flex-col">
+                                          <p className="text-sm font-medium">
+                                            {methodName}
+                                          </p>
+                                          <p className="text-sm text-muted-foreground">
+                                            GH₵{amount}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                ) || (
+                                  <span className="text-muted-foreground">
+                                    -
+                                  </span>
                                 )}
                               </div>
                             </TableCell>
@@ -422,12 +550,12 @@ export function DispensingTab() {
                       variant="outline"
                       onClick={() => setShowHistory(true)}
                     >
-                      View History
-                      {patient && prescriptionHistory.length > 0 && (
+                      View History →
+                      {/* {patient && prescriptionHistory.length > 0 && (
                         <Badge variant="secondary" className="ml-2">
                           {prescriptionHistory.length}
                         </Badge>
-                      )}
+                      )} */}
                     </Button>
                   </div>
 
@@ -439,6 +567,7 @@ export function DispensingTab() {
                         <TableHead>Dosage</TableHead>
                         <TableHead>Frequency</TableHead>
                         <TableHead>Duration</TableHead>
+                        <TableHead>Route</TableHead>
                         <TableHead>Quantity</TableHead>
                         <TableHead>Price</TableHead>
                         <TableHead>Total</TableHead>
@@ -478,6 +607,7 @@ export function DispensingTab() {
                             <TableCell>{prescription.dosage}</TableCell>
                             <TableCell>{prescription.frequency}</TableCell>
                             <TableCell>{prescription.duration}</TableCell>
+                            <TableCell>{prescription.route || "-"}</TableCell>
                             <TableCell>{prescription.quantity}</TableCell>
                             <TableCell>
                               {formatCurrency(
@@ -537,59 +667,59 @@ export function DispensingTab() {
       />
 
       <Dialog open={showWaitingList} onOpenChange={setShowWaitingList}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Waiting List</DialogTitle>
+            <DialogDescription>
+              Select a patient from the pharmacy waiting list to dispense their
+              prescriptions
+            </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
-            {waitingList.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Clinic ID</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead></TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Clinic ID</TableHead>
+                <TableHead>Gender</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {waitingList.length > 0 ? (
+                waitingList.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell>
+                      {request.patient.firstName} {request.patient.lastName}
+                    </TableCell>
+                    <TableCell>{request.patient.clinicId}</TableCell>
+                    <TableCell>{request.patient.gender}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          form.setValue("clinicId", request.patient.clinicId);
+                          onClinicIdChange(request.patient.clinicId);
+                          setShowWaitingList(false);
+                        }}
+                      >
+                        Select
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {waitingList.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell>
-                        {request.patient.firstName} {request.patient.lastName}
-                      </TableCell>
-                      <TableCell>{request.patient.clinicId}</TableCell>
-                      <TableCell>{request.patient.gender}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            form.setValue("clinicId", request.patient.clinicId);
-                            onClinicIdChange(request.patient.clinicId);
-                            setShowWaitingList(false);
-                          }}
-                        >
-                          Select
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users2 className="h-8 w-8 mx-auto mb-4 opacity-50" />
-                <p>No patients in waiting list</p>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWaitingList(false)}>
-              Close
-            </Button>
-          </DialogFooter>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    <Users2 className="h-8 w-8 mx-auto mb-4 opacity-50" />
+                    <p>No patients in waiting list</p>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </DialogContent>
       </Dialog>
     </div>

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { pool } from "../db";
 import { RowDataPacket } from "mysql2";
 import type { AuthenticatedRequest } from "../types/auth";
+import crypto from "crypto";
 
 export class PharmacyController {
   static async dispensePrescriptions(req: AuthenticatedRequest, res: Response) {
@@ -11,6 +12,12 @@ export class PharmacyController {
       await connection.beginTransaction();
       const { prescriptionIds, payments } = req.body;
       const userId = req.user?.id;
+
+      // Get next session ID
+      const [lastSession] = await connection.execute<RowDataPacket[]>(
+        "SELECT MAX(session_id) as last_id FROM prescriptions"
+      );
+      const sessionId = (lastSession[0].last_id || 0) + 1;
 
       // Create payment records
       const paymentRecords = await Promise.all(
@@ -24,14 +31,15 @@ export class PharmacyController {
         })
       );
 
-      // Update prescriptions
+      // Update prescriptions with session ID
       await connection.execute(
         `UPDATE prescriptions 
          SET dispensed = true, 
              dispensed_by = ?, 
-             dispensed_at = NOW()
+             dispensed_at = NOW(),
+             session_id = ?
          WHERE id IN (?)`,
-        [userId, prescriptionIds.join(",")]
+        [userId, sessionId, prescriptionIds.join(",")]
       );
 
       // Link payments to prescriptions
@@ -58,34 +66,58 @@ export class PharmacyController {
     }
   }
 
-  static async getWaitingList(req: AuthenticatedRequest, res: Response) {
-    const connection = await pool.getConnection();
-
+  static async getWaitingList(req: Request, res: Response) {
     try {
-      const [rows] = await connection.execute<RowDataPacket[]>(
-        `SELECT 
-          p.id,
-          p.clinic_id,
-          p.first_name,
-          p.middle_name,
-          p.last_name,
-          p.date_of_birth,
-          p.gender,
-          p.contact,
-          pr.id as prescription_id,
-          pr.created_at
-         FROM prescriptions pr
-         JOIN patients p ON pr.patient_id = p.id
-         WHERE pr.dispensed = false
-         ORDER BY pr.created_at ASC`
-      );
+      const [waitingList] = await pool.execute<RowDataPacket[]>(`
+        WITH RankedPrescriptions AS (
+          SELECT 
+            p.*,
+            pat.id as patientId,
+            pat.clinic_id as clinicId,
+            pat.first_name as firstName,
+            pat.middle_name as middleName,
+            pat.last_name as lastName,
+            pat.gender,
+            ROW_NUMBER() OVER (PARTITION BY pat.id ORDER BY p.created_at ASC) as rn
+          FROM prescriptions p
+          JOIN patients pat ON p.patient_id = pat.id
+          WHERE p.dispensed = false
+        )
+        SELECT 
+          prescriptionId,
+          created_at,
+          patientId,
+          clinicId,
+          firstName,
+          middleName,
+          lastName,
+          gender
+        FROM RankedPrescriptions
+        WHERE rn = 1
+        ORDER BY created_at ASC
+      `);
 
-      res.json(rows);
+      const formattedList = (waitingList as RowDataPacket[]).map((item) => ({
+        id: item.prescriptionId,
+        createdAt: item.created_at,
+        patient: {
+          clinicId: item.clinicId,
+          firstName: item.firstName,
+          middleName: item.middleName,
+          lastName: item.lastName,
+          gender: item.gender,
+        },
+        service: {
+          id: "pharmacy",
+          name: "Pharmacy",
+          category: "pharmacy",
+        },
+      }));
+
+      res.json(formattedList);
     } catch (error) {
-      console.error("Error fetching waiting list:", error);
-      res.status(500).json({ error: "Failed to fetch waiting list" });
-    } finally {
-      connection.release();
+      console.error("Error fetching pharmacy waiting list:", error);
+      res.status(500).json({ error: "Failed to fetch pharmacy waiting list" });
     }
   }
 
@@ -99,43 +131,42 @@ export class PharmacyController {
     try {
       const [rows] = await connection.execute<RowDataPacket[]>(
         `SELECT 
-          pr.id,
+          pr.session_id,
           pr.created_at,
-          pr.dispensed,
           pr.dispensed_at,
-          pr.dosage,
-          pr.frequency,
-          pr.duration,
-          pr.quantity,
+          GROUP_CONCAT(
+            JSON_OBJECT(
+              'id', pr.id,
+              'drug', JSON_OBJECT(
+                'id', d.id,
+                'genericName', d.name,
+                'strength', d.strength,
+                'form', d.unit
+              ),
+              'dosage', pr.dosage,
+              'frequency', pr.frequency,
+              'duration', pr.duration,
+              'quantity', pr.quantity,
+              'route', pr.route
+            )
+          ) as prescriptions,
           u.full_name as dispensed_by,
           GROUP_CONCAT(DISTINCT p.method) as payment_methods,
-          SUM(p.amount) as total_amount,
-          d.id as drug_id,
-          d.name as drug_name,
-          d.strength as drug_strength,
-          d.unit as drug_form
+          SUM(p.amount) as total_amount
          FROM prescriptions pr
          JOIN drugs d ON pr.drug_id = d.id
          LEFT JOIN prescription_payments pp ON pr.id = pp.prescription_id
          LEFT JOIN payments p ON pp.payment_id = p.id
          LEFT JOIN users u ON pr.dispensed_by = u.id
-         WHERE pr.patient_id = ?
-         AND pr.dispensed = true
-         GROUP BY pr.id, pr.created_at, pr.dispensed, pr.dispensed_at,
-                  pr.dosage, pr.frequency, pr.duration, pr.quantity,
-                  u.full_name, d.id, d.name, d.strength, d.unit
+         WHERE pr.patient_id = ? AND pr.dispensed = true
+         GROUP BY pr.session_id, pr.created_at, pr.dispensed_at, u.full_name
          ORDER BY pr.created_at DESC`,
         [patientId]
       );
 
       const prescriptions = rows.map((row: any) => ({
         ...row,
-        drug: {
-          id: row.drug_id,
-          genericName: row.drug_name,
-          strength: row.drug_strength,
-          form: row.drug_form,
-        },
+        prescriptions: JSON.parse(`[${row.prescriptions}]`),
         payment_methods: row.payment_methods
           ? row.payment_methods.split(",")
           : [],

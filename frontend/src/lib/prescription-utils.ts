@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const frequencies = [
   "Once daily",
@@ -14,14 +14,13 @@ export const frequencies = [
 
 export const routes = [
   "Oral",
-  "Sublingual",
-  "Topical",
-  "Subcutaneous",
-  "Intramuscular",
   "Intravenous",
-  "Inhalation",
+  "Intramuscular",
+  "Subcutaneous",
+  "Topical",
+  "Sublingual",
   "Rectal",
-  "Vaginal",
+  "Inhalation",
 ];
 
 export const timings = [
@@ -42,19 +41,32 @@ export const timings = [
 // Prescription validation schema
 export const prescriptionSchema = z.object({
   drugId: z.number({ required_error: "Drug is required" }),
-  dosage: z.string({ required_error: "Dosage is required" }).min(1, "Dosage is required"),
-  frequency: z.string({ required_error: "Frequency is required" }).min(1, "Frequency is required"),
-  duration: z.string({ required_error: "Duration is required" }).min(1, "Duration is required"),
-  quantity: z.string({ required_error: "Quantity is required" }).min(1, "Quantity is required"),
-  route: z.string({ required_error: "Route is required" }).min(1, "Route is required")
+  dosage: z
+    .string({ required_error: "Dosage is required" })
+    .min(1, "Dosage is required"),
+  frequency: z
+    .string({ required_error: "Frequency is required" })
+    .min(1, "Frequency is required"),
+  duration: z
+    .string({ required_error: "Duration is required" })
+    .min(1, "Duration is required"),
+  quantity: z
+    .string({ required_error: "Quantity is required" })
+    .min(1, "Quantity is required"),
+  route: z
+    .string({ required_error: "Route is required" })
+    .min(1, "Route is required"),
 });
 
 // Calculate quantity based on dosage, frequency and duration
-export const calculateQuantity = (dosage: string | number, frequency: string, duration: string): number => {
+export const calculateQuantity = (
+  dosage: string | number,
+  frequency: string,
+  duration: string
+): number => {
   // Extract numeric value from dosage string (e.g., "2 tablets" -> 2)
-  const dosageNum = typeof dosage === 'string' 
-    ? parseFloat(dosage.split(' ')[0]) 
-    : dosage;
+  const dosageNum =
+    typeof dosage === "string" ? parseFloat(dosage.split(" ")[0]) : dosage;
 
   if (isNaN(dosageNum) || !frequency || !duration) {
     return 0;
@@ -76,7 +88,9 @@ export const calculateQuantity = (dosage: string | number, frequency: string, du
   const frequencyPerDay = frequencyMap[frequency] || 0;
 
   // Extract duration number and unit
-  const durationMatch = duration.match(/(\d+)\s*(day|days|week|weeks|month|months)/i);
+  const durationMatch = duration.match(
+    /(\d+)\s*(day|days|week|weeks|month|months)/i
+  );
   if (!durationMatch) return 0;
 
   const durationNum = parseInt(durationMatch[1]);
@@ -84,9 +98,9 @@ export const calculateQuantity = (dosage: string | number, frequency: string, du
 
   // Convert duration to days
   let durationInDays = durationNum;
-  if (durationUnit.includes('week')) {
+  if (durationUnit.includes("week")) {
     durationInDays *= 7;
-  } else if (durationUnit.includes('month')) {
+  } else if (durationUnit.includes("month")) {
     durationInDays *= 30;
   }
 
@@ -95,9 +109,9 @@ export const calculateQuantity = (dosage: string | number, frequency: string, du
 
 // Generate unique ID
 export const generateId = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
-}; 
+};

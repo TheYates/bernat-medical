@@ -65,6 +65,11 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   );
   const [showResultDetails, setShowResultDetails] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [investigationHistory, setInvestigationHistory] = useState<
+    Investigation[]
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Fetch services and investigations when patient changes
   useEffect(() => {
@@ -157,242 +162,391 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   };
 
   // Helper function to get correct file URL
-  const getFileUrl = (fileUrl: string) => {
+  const getFileUrl = (fileUrl: string | undefined) => {
+    if (!fileUrl) return "";
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    const url = fileUrl.startsWith("http") ? fileUrl : `${apiUrl}${fileUrl}`;
-    console.log("Constructed file URL:", url);
-    return url;
+    return fileUrl.startsWith("http") ? fileUrl : `${apiUrl}${fileUrl}`;
   };
+
+  // Add this function to handle viewing history
+  const handleViewHistory = () => {
+    setShowHistory(true);
+  };
+
+  // Add this function to fetch history
+  const fetchInvestigationHistory = async () => {
+    if (!patient?.id) return;
+    setIsLoadingHistory(true);
+    try {
+      const response = await api.get(`/lab-requests/${patient.id}/history`);
+      setInvestigationHistory(response.data);
+    } catch (error) {
+      toast.error("Failed to fetch investigation history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Add useEffect to fetch history when patient changes
+  useEffect(() => {
+    if (patient?.id) {
+      fetchInvestigationHistory();
+    }
+  }, [patient]);
 
   return (
     <Card>
       <CardContent className="p-6 space-y-4">
-        {/* Copy the JSX from your reference code */}
-        {/* Service Search */}
-        <div className="flex items-center gap-2">
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
+        {showHistory ? (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-lg font-semibold">Investigation History</h2>
+                <p className="text-sm text-muted-foreground">
+                  View past investigations
+                </p>
+              </div>
               <Button
                 variant="outline"
-                role="combobox"
-                aria-expanded={open}
-                className="w-[300px] justify-between"
-                disabled={!patient}
+                onClick={() => setShowHistory(false)}
+                className="flex items-center gap-2"
               >
-                Search medical tests...
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                ← Back to Investigations
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0">
-              <Command>
-                <CommandInput
-                  placeholder="Search tests and scans..."
-                  value={searchTerm}
-                  onValueChange={setSearchTerm}
-                />
-                <CommandList>
-                  <CommandEmpty>No investigation found.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredServices.map((service) => (
-                      <CommandItem
-                        key={service.id}
-                        value={service.name}
-                        onSelect={() => {
-                          addService(service);
-                          setOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedServices.some((s) => s.id === service.id)
-                              ? "opacity-100"
-                              : "opacity-0"
-                          )}
-                        />
-                        <div className="flex-1">
-                          <p>{service.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {service.category} - {formatCurrency(service.price)}
-                          </p>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+            </div>
 
-        {/* Selected Investigations */}
-        {selectedServices.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <h4 className="font-medium mb-4">Selected Investigations</h4>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Investigation</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedServices.map((service) => (
-                    <TableRow key={service.id}>
-                      <TableCell>{service.name}</TableCell>
-                      <TableCell>{service.category}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(service.price)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeService(service.id)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="flex justify-end mt-4">
-                <Button
-                  type="button"
-                  onClick={handleInvestigationRequest}
-                  className="rounded-lg"
-                >
-                  Request Investigations
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Investigation Results */}
-        <Card>
-          <CardContent className="p-4">
-            <h4 className="font-medium mb-4">Investigation Results</h4>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Investigation</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Result</TableHead>
+                  <TableHead>Test</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Performed By</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead>Results</TableHead>
+                  <TableHead>Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingInvestigations ? (
+                {isLoadingHistory ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
-                      Loading investigations...
+                    <TableCell colSpan={5} className="text-center h-24">
+                      Loading...
                     </TableCell>
                   </TableRow>
-                ) : investigations.length > 0 ? (
-                  investigations.map((investigation) => (
-                    <TableRow
-                      key={investigation.id}
-                      className={
-                        investigation.status === "Completed"
-                          ? "cursor-pointer hover:bg-muted/50"
-                          : ""
-                      }
-                      onClick={() => {
-                        if (investigation.status === "Completed") {
-                          setSelectedResult(investigation);
-                          setShowResultDetails(true);
-                        }
-                      }}
+                ) : investigationHistory.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center h-24 text-muted-foreground"
                     >
+                      No investigation history found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  investigationHistory.map((investigation) => (
+                    <TableRow key={investigation.id}>
                       <TableCell>
                         {format(
                           new Date(investigation.createdAt),
-                          "dd/MM/yyyy"
+                          "dd MMM yyyy"
                         )}
                       </TableCell>
                       <TableCell>{investigation.service.name}</TableCell>
-                      <TableCell>{investigation.service.category}</TableCell>
-                      <TableCell>
-                        <div className="max-w-[200px]">
-                          {investigation.result ? (
-                            <span
-                              className="truncate block cursor-pointer hover:text-primary"
-                              title="Click to view full result"
-                              onClick={() => {
-                                setSelectedResult(investigation);
-                                setShowResultDetails(true);
-                              }}
-                            >
-                              {investigation.result.length > 50
-                                ? `${investigation.result.substring(0, 50)}...`
-                                : investigation.result}
-                            </span>
-                          ) : (
-                            "-"
-                          )}
-                        </div>
-                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={
                             investigation.status === "Completed"
                               ? "success"
-                              : investigation.status === "In Progress"
-                              ? "warning"
-                              : investigation.status === "Cancelled"
-                              ? "destructive"
-                              : "default"
+                              : "secondary"
                           }
                         >
                           {investigation.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {investigation.performedBy
-                          ? investigation.performedBy.fullName
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {investigation.status === "Pending" && (
+                        {investigation.result || "-"}
+                        {investigation.fileUrl && (
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="ml-2"
                             onClick={() =>
-                              deleteInvestigation(investigation.id)
+                              window.open(
+                                getFileUrl(investigation.fileUrl),
+                                "_blank"
+                              )
                             }
-                            className="h-7 w-7 p-0"
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <FileText className="h-4 w-4" />
                           </Button>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {investigation.requestedBy?.fullName || "-"}
+                      </TableCell>
                     </TableRow>
                   ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center text-muted-foreground"
-                    >
-                      No investigations found
-                    </TableCell>
-                  </TableRow>
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-lg font-semibold">Add Investigation</h2>
+                <p className="text-sm text-muted-foreground">
+                  Request lab tests and x-rays
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleViewHistory}
+                className="flex items-center gap-2"
+              >
+                View History →
+                {investigationHistory.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {investigationHistory.length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
+
+            {/* Service Search */}
+            <div className="flex items-center gap-2">
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-[300px] justify-between"
+                    disabled={!patient}
+                  >
+                    Search medical tests...
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search tests and scans..."
+                      value={searchTerm}
+                      onValueChange={setSearchTerm}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No investigation found.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredServices.map((service) => (
+                          <CommandItem
+                            key={service.id}
+                            value={service.name}
+                            onSelect={() => {
+                              addService(service);
+                              setOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedServices.some(
+                                  (s) => s.id === service.id
+                                )
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            <div className="flex-1">
+                              <p>{service.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {service.category} -{" "}
+                                {formatCurrency(service.price)}
+                              </p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Selected Investigations */}
+            {selectedServices.length > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <h4 className="font-medium mb-4">Selected Investigations</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Investigation</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="w-[100px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedServices.map((service) => (
+                        <TableRow key={service.id}>
+                          <TableCell>{service.name}</TableCell>
+                          <TableCell>{service.category}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(service.price)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeService(service.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      type="button"
+                      onClick={handleInvestigationRequest}
+                      className="rounded-lg"
+                    >
+                      Request Investigations
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Investigation Results */}
+            <Card>
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-4">Investigation Results</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Investigation</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Result</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Performed By</TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingInvestigations ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center">
+                          Loading investigations...
+                        </TableCell>
+                      </TableRow>
+                    ) : investigations.length > 0 ? (
+                      investigations.map((investigation) => (
+                        <TableRow
+                          key={investigation.id}
+                          className={
+                            investigation.status === "Completed"
+                              ? "cursor-pointer hover:bg-muted/50"
+                              : ""
+                          }
+                          onClick={() => {
+                            if (investigation.status === "Completed") {
+                              setSelectedResult(investigation);
+                              setShowResultDetails(true);
+                            }
+                          }}
+                        >
+                          <TableCell>
+                            {format(
+                              new Date(investigation.createdAt),
+                              "dd/MM/yyyy"
+                            )}
+                          </TableCell>
+                          <TableCell>{investigation.service.name}</TableCell>
+                          <TableCell>
+                            {investigation.service.category}
+                          </TableCell>
+                          <TableCell>
+                            <div className="max-w-[200px]">
+                              {investigation.result ? (
+                                <span
+                                  className="truncate block cursor-pointer hover:text-primary"
+                                  title="Click to view full result"
+                                  onClick={() => {
+                                    setSelectedResult(investigation);
+                                    setShowResultDetails(true);
+                                  }}
+                                >
+                                  {investigation.result.length > 50
+                                    ? `${investigation.result.substring(
+                                        0,
+                                        50
+                                      )}...`
+                                    : investigation.result}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                investigation.status === "Completed"
+                                  ? "success"
+                                  : investigation.status === "In Progress"
+                                  ? "warning"
+                                  : investigation.status === "Cancelled"
+                                  ? "destructive"
+                                  : "default"
+                              }
+                            >
+                              {investigation.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {investigation.performedBy
+                              ? investigation.performedBy.fullName
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {investigation.status === "Pending" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  deleteInvestigation(investigation.id)
+                                }
+                                className="h-7 w-7 p-0"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-muted-foreground"
+                        >
+                          No investigations found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </CardContent>
 
       <Dialog open={showResultDetails} onOpenChange={setShowResultDetails}>

@@ -58,7 +58,6 @@ import {
   frequencies,
   routes,
   calculateQuantity,
-  prescriptionSchema,
   generateId,
 } from "@/lib/prescription-utils";
 import { z } from "zod";
@@ -137,6 +136,18 @@ const prescriptionColumns = [
   },
 ];
 
+// Add validation schemas
+const prescriptionItemSchema = z.object({
+  drugId: z.string().min(1, "Drug is required"),
+  dosage: z.string().min(1, "Dosage is required"),
+  frequency: z.string().min(1, "Frequency is required"),
+  duration: z.string().min(1, "Duration is required"),
+  route: z.string().min(1, "Route is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+});
+
+const prescriptionsSchema = z.array(prescriptionItemSchema);
+
 export function PrescriptionsTab({
   form,
   patient,
@@ -173,8 +184,55 @@ export function PrescriptionsTab({
       return;
     }
 
-    // Just show confirmation dialog
-    setShowConfirmation(true);
+    // Validate all prescriptions
+    try {
+      const validationResult = prescriptionsSchema.safeParse(
+        selectedDrugs.map((drug) => ({
+          drugId: drug.drugId,
+          dosage: drug.dosage,
+          frequency: drug.frequency,
+          duration: drug.duration,
+          route: drug.route,
+          quantity: drug.quantity,
+        }))
+      );
+
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors.map(
+          (err) => `${err.path.join(".")} - ${err.message}`
+        );
+        toast.error(
+          <div>
+            <p>Please fix the following errors:</p>
+            <ul className="list-disc pl-4 mt-2">
+              {errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        );
+        return;
+      }
+
+      // If validation passes, show confirmation dialog
+      setShowConfirmation(true);
+    } catch (error) {
+      console.error("Validation error:", error);
+      toast.error("Please check all prescription details are filled correctly");
+    }
+  };
+
+  const fetchPrescriptionHistory = async () => {
+    if (!patient?.id) return;
+    setIsLoadingHistory(true);
+    try {
+      const response = await prescriptionsService.getHistory(patient.id);
+      setPrescriptionHistory(response);
+    } catch (error) {
+      console.error("Error fetching prescription history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   const confirmSave = async (e: React.MouseEvent) => {
@@ -183,6 +241,7 @@ export function PrescriptionsTab({
 
     try {
       await onSavePrescriptions(selectedDrugs);
+      await fetchPrescriptionHistory();
       setShowConfirmation(false);
       clearSelectedDrugs();
       setShowHistory(true);
@@ -197,16 +256,18 @@ export function PrescriptionsTab({
       drugId: drug.id.toString(),
       drug,
       prescriptionId: "",
-      dosage: "1 tablet",
+      dosage: "",
       frequency: "Once daily",
       duration: "1 days",
       route: "Oral",
-      quantity: 1,
+      quantity: 0,
       salePricePerUnit: Number(drug.salePricePerUnit),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     setSelectedDrugs((prev) => [...prev, prescriptionItem]);
+    setOpen(false);
+    setSearchTerm("");
   };
 
   const handleDrugSelect = (drug: Drug) => {
@@ -240,19 +301,33 @@ export function PrescriptionsTab({
     drugId: string,
     updates: Partial<PrescriptionItem>
   ) => {
-    if (updates.dosage || updates.frequency || updates.duration) {
-      const drug = selectedDrugs.find((d) => d.drugId === drugId);
-      if (!drug) return;
+    setSelectedDrugs((prev) => {
+      return prev.map((drug) => {
+        if (drug.drugId !== drugId) return drug;
 
-      const newDosage = updates.dosage || drug.dosage;
-      const newFrequency = updates.frequency || drug.frequency;
-      const newDuration = updates.duration || drug.duration;
+        const updatedDrug = { ...drug, ...updates };
 
-      const quantity = calculateQuantity(newDosage, newFrequency, newDuration);
-      updates.quantity = Number(quantity);
-    }
+        // Calculate quantity if dosage-related fields are updated AND frequency is not "As needed"
+        if (
+          (updates.dosage || updates.frequency || updates.duration) &&
+          updatedDrug.frequency !== "As needed"
+        ) {
+          try {
+            const quantity = calculateQuantity(
+              updatedDrug.dosage,
+              updatedDrug.frequency,
+              updatedDrug.duration
+            );
+            updatedDrug.quantity = Number(quantity);
+          } catch (error) {
+            console.error("Error calculating quantity:", error);
+            toast.error("Invalid dosage, frequency, or duration");
+          }
+        }
 
-    onUpdateDrug(drugId, updates);
+        return updatedDrug;
+      });
+    });
   };
 
   // Add useEffect to fetch drugs
@@ -393,11 +468,11 @@ export function PrescriptionsTab({
                 className="flex items-center gap-2"
               >
                 View History →
-                {prescriptionHistory.length > 0 && (
+                {/* {prescriptionHistory.length > 0 && (
                   <Badge variant="secondary" className="ml-2">
                     {prescriptionHistory.length}
                   </Badge>
-                )}
+                )} */}
               </Button>
             </div>
 
@@ -507,7 +582,7 @@ export function PrescriptionsTab({
                         <TableHead>Duration</TableHead>
                         <TableHead>Route</TableHead>
                         <TableHead>Quantity</TableHead>
-                        <TableHead>Unit Price</TableHead>
+                        {/* <TableHead>Unit Price</TableHead> */}
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -520,7 +595,9 @@ export function PrescriptionsTab({
                                 {drug.drug.genericName}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {drug.drug.brandName} • {drug.drug.strength}
+                                {drug.drug.strength}
+                                {drug.drug.unit} •{" "}
+                                {formatCurrency(drug.drug.salePricePerUnit)}
                               </p>
                             </div>
                           </TableCell>
@@ -541,6 +618,7 @@ export function PrescriptionsTab({
                           </TableCell>
                           <TableCell>
                             <Input
+                              type="text"
                               placeholder="e.g., 1 tablet"
                               value={drug.dosage}
                               onChange={(e) =>
@@ -548,7 +626,11 @@ export function PrescriptionsTab({
                                   dosage: e.target.value,
                                 })
                               }
-                              className="w-[120px]"
+                              className={cn(
+                                "w-24",
+                                !drug.dosage &&
+                                  "border-red-500 focus-visible:ring-red-500"
+                              )}
                             />
                           </TableCell>
                           <TableCell>
@@ -560,8 +642,14 @@ export function PrescriptionsTab({
                                 })
                               }
                             >
-                              <SelectTrigger className="w-[140px]">
-                                <SelectValue placeholder="Select" />
+                              <SelectTrigger
+                                className={cn(
+                                  "w-[160px]",
+                                  !drug.frequency &&
+                                    "border-red-500 focus-visible:ring-red-500"
+                                )}
+                              >
+                                <SelectValue placeholder="Select frequency" />
                               </SelectTrigger>
                               <SelectContent>
                                 {frequencies.map((freq) => (
@@ -595,18 +683,23 @@ export function PrescriptionsTab({
                             <Select
                               value={drug.route}
                               onValueChange={(value) =>
-                                handleUpdateDrug(drug.drugId, { route: value })
+                                handleUpdateDrug(drug.drugId, {
+                                  route: value,
+                                })
                               }
                             >
-                              <SelectTrigger className="w-[120px]">
-                                <SelectValue placeholder="Select" />
+                              <SelectTrigger
+                                className={cn(
+                                  "w-[120px]",
+                                  !drug.route &&
+                                    "border-red-500 focus-visible:ring-red-500"
+                                )}
+                              >
+                                <SelectValue placeholder="Select route" />
                               </SelectTrigger>
                               <SelectContent>
                                 {routes.map((route) => (
-                                  <SelectItem
-                                    key={route}
-                                    value={route.toLowerCase()}
-                                  >
+                                  <SelectItem key={route} value={route}>
                                     {route}
                                   </SelectItem>
                                 ))}
@@ -614,17 +707,27 @@ export function PrescriptionsTab({
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={drug.quantity}
-                              readOnly
-                              className="w-[80px]"
-                            />
+                            {drug.frequency === "As needed" ? (
+                              <Input
+                                type="number"
+                                min="1"
+                                className="w-20"
+                                value={drug.quantity}
+                                onChange={(e) =>
+                                  handleUpdateDrug(drug.drugId, {
+                                    quantity: parseInt(e.target.value) || 0,
+                                  })
+                                }
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {drug.quantity}
+                              </span>
+                            )}
                           </TableCell>
-                          <TableCell>
+                          {/* <TableCell>
                             {formatCurrency(drug.salePricePerUnit)}
-                          </TableCell>
+                          </TableCell> */}
                           <TableCell>
                             <Button
                               variant="ghost"

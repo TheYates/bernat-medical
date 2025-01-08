@@ -48,50 +48,14 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-
-interface Prescription {
-  id: string;
-  session_id?: string;
-  prescriptions?: Array<{
-    id: string;
-    drug: {
-      id: string;
-      genericName: string;
-      strength: string;
-      form: string;
-    };
-    dosage: string;
-    frequency: string;
-    duration: string;
-    quantity: number;
-    route: string;
-  }>;
-  drug: {
-    id: string;
-    genericName: string;
-    brandName: string;
-    form: string;
-    strength: string;
-    salePricePerUnit: number;
-  };
-  dosage: string;
-  frequency: string;
-  duration: string;
-  quantity: number;
-  route: string;
-  dispensed: boolean;
-  payments?: Array<{ method: string }>;
-  status?: string;
-  createdAt: string;
-  dispensedBy?: {
-    id: number;
-    fullName: string;
-  };
-  total_amount?: number;
-  payment_methods?: string[];
-  created_at?: string;
-  dispensed_by?: string;
-}
+import type { Prescription, Payment } from "@/services/prescriptions.service";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const formSchema = z.object({
   clinicId: z.string().min(1, "Clinic ID is required"),
@@ -176,6 +140,8 @@ export function DispensingTab() {
       const response = await api.get(
         `/pharmacy/prescriptions/history/${patient.id}`
       );
+      console.log("Raw prescription history:", response.data);
+      console.log("Payment methods:", response.data[0]?.payment_methods);
       setPrescriptionHistory(response.data);
     } catch (error) {
       toast.error("Failed to fetch prescription history");
@@ -295,7 +261,7 @@ export function DispensingTab() {
   }, [patient]);
 
   return (
-    <div className="max-w-[960px] mx-auto">
+    <div className="max-w-[1000px] mx-auto">
       <Card>
         <CardContent className="p-3">
           <Form {...form}>
@@ -379,7 +345,7 @@ export function DispensingTab() {
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Drug</TableHead>
-                        <TableHead>Prescription Details</TableHead>
+                        <TableHead>Details</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Payment</TableHead>
                         <TableHead>Dispensed By</TableHead>
@@ -426,33 +392,36 @@ export function DispensingTab() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="space-y-2">
+                              <div className="flex flex-col space-y-2">
                                 {(prescription.prescriptions || []).map(
                                   (drug: any, index: number) => (
-                                    <HoverCard
+                                    <DropdownMenu
                                       key={`${prescription.session_id}-${drug.id}-details-${index}`}
                                     >
-                                      <HoverCardTrigger asChild>
-                                        <Button variant="link" className="p-0">
-                                          <div className="text-left">
-                                            <span>
-                                              {drug.dosage} • {drug.frequency}
-                                              {drug.route && ` • ${drug.route}`}
-                                            </span>
-                                            <span className="block text-sm text-muted-foreground">
-                                              {drug.duration}
-                                            </span>
-                                          </div>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 w-fit"
+                                        >
+                                          Details
                                         </Button>
-                                      </HoverCardTrigger>
-                                      <HoverCardContent className="w-80">
-                                        <div className="space-y-2">
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align="start"
+                                        className="w-72"
+                                      >
+                                        <DropdownMenuLabel>
+                                          Prescription Details
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <div className="p-2 space-y-2">
                                           <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                               <p className="text-sm font-medium">
                                                 Dosage
                                               </p>
-                                              <p className="text-sm">
+                                              <p className="text-sm text-muted-foreground">
                                                 {drug.dosage}
                                               </p>
                                             </div>
@@ -460,76 +429,76 @@ export function DispensingTab() {
                                               <p className="text-sm font-medium">
                                                 Frequency
                                               </p>
-                                              <p className="text-sm">
+                                              <p className="text-sm text-muted-foreground">
                                                 {drug.frequency}
                                               </p>
                                             </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                               <p className="text-sm font-medium">
                                                 Duration
                                               </p>
-                                              <p className="text-sm">
+                                              <p className="text-sm text-muted-foreground">
                                                 {drug.duration}
-                                              </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-medium">
-                                                Quantity
-                                              </p>
-                                              <p className="text-sm">
-                                                {drug.quantity}
                                               </p>
                                             </div>
                                             <div className="space-y-1">
                                               <p className="text-sm font-medium">
                                                 Route
                                               </p>
-                                              <p className="text-sm">
+                                              <p className="text-sm text-muted-foreground">
                                                 {drug.route || "-"}
                                               </p>
                                             </div>
                                           </div>
+                                          <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                              Quantity
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {drug.quantity}
+                                            </p>
+                                          </div>
                                         </div>
-                                      </HoverCardContent>
-                                    </HoverCard>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   )
                                 )}
                               </div>
                             </TableCell>
                             <TableCell>
-                              {formatCurrency(prescription.total_amount || 0)}
+                              {formatCurrency(
+                                Number(prescription.total_amount || 0)
+                              )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-wrap gap-4">
-                                {prescription.payment_methods?.map(
-                                  (method: string, index: number) => {
-                                    const parts = method.split(":");
-                                    const methodName = parts[0].trim();
-                                    const amount = parts[1]?.trim();
-
-                                    return (
-                                      <div
-                                        key={`${prescription.session_id}-payment-${index}`}
-                                        className="flex items-center gap-2"
-                                      >
-                                        {methodName
-                                          .toLowerCase()
-                                          .includes("cash") ? (
-                                          <Banknote className="h-4 w-4" />
-                                        ) : (
-                                          <CreditCard className="h-4 w-4" />
-                                        )}
-                                        <div className="flex flex-col">
-                                          <p className="text-sm font-medium">
-                                            {methodName}
-                                          </p>
-                                          <p className="text-sm text-muted-foreground">
-                                            GH₵{amount}
-                                          </p>
-                                        </div>
+                              <div className="flex flex-wrap gap-2">
+                                {prescription.payments?.map(
+                                  (payment: Payment, index) => (
+                                    <div
+                                      key={`${prescription.session_id}-payment-${index}`}
+                                      className="flex items-center gap-2"
+                                    >
+                                      {payment.method
+                                        .toLowerCase()
+                                        .includes("cash") ? (
+                                        <Banknote className="h-4 w-4" />
+                                      ) : (
+                                        <CreditCard className="h-4 w-4" />
+                                      )}
+                                      <div className="flex flex-col">
+                                        <p className="text-sm font-medium">
+                                          {payment.method}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          {formatCurrency(
+                                            Number(payment.amount)
+                                          )}
+                                        </p>
                                       </div>
-                                    );
-                                  }
+                                    </div>
+                                  )
                                 ) || (
                                   <span className="text-muted-foreground">
                                     -

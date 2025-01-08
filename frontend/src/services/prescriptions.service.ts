@@ -38,13 +38,32 @@ export interface Prescription {
     genericName: string;
     strength: string;
     salePricePerUnit: number;
+    form: string;
   };
   dosage: string;
   frequency: string;
   duration: string;
   route: string;
   quantity: number;
+  payment_methods: string[];
+  total_amount: string;
+  dispensed_by: string;
+  dispensed_at: string;
+  created_at: string;
+  session_id: number;
+  prescriptions: Array<{
+    // prescription details
+  }>;
+  payments?: Array<{
+    method: string;
+    amount: number;
+  }>;
 }
+
+export type Payment = {
+  method: string;
+  amount: number;
+};
 
 export const prescriptionsService = {
   getHistory: async (patientId: string) => {

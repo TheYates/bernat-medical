@@ -134,6 +134,13 @@ export class PharmacyController {
           pr.session_id,
           pr.created_at,
           pr.dispensed_at,
+          SUM(p.amount) as total_amount,
+          GROUP_CONCAT(
+            JSON_OBJECT(
+              'method', p.method,
+              'amount', p.amount
+            )
+          ) as payments,
           GROUP_CONCAT(
             JSON_OBJECT(
               'id', pr.id,
@@ -146,29 +153,27 @@ export class PharmacyController {
               'dosage', pr.dosage,
               'frequency', pr.frequency,
               'duration', pr.duration,
-              'quantity', pr.quantity,
-              'route', pr.route
+              'route', pr.route,
+              'quantity', pr.quantity
             )
           ) as prescriptions,
-          u.full_name as dispensed_by,
-          GROUP_CONCAT(DISTINCT p.method) as payment_methods,
-          SUM(p.amount) as total_amount
-         FROM prescriptions pr
-         JOIN drugs d ON pr.drug_id = d.id
-         LEFT JOIN prescription_payments pp ON pr.id = pp.prescription_id
-         LEFT JOIN payments p ON pp.payment_id = p.id
-         LEFT JOIN users u ON pr.dispensed_by = u.id
-         WHERE pr.patient_id = ? AND pr.dispensed = true
-         GROUP BY pr.session_id, pr.created_at, pr.dispensed_at, u.full_name
-         ORDER BY pr.created_at DESC`,
+          u.full_name as dispensed_by
+        FROM prescriptions pr
+        JOIN drugs d ON pr.drug_id = d.id
+        LEFT JOIN prescription_payments pp ON pr.id = pp.prescription_id
+        LEFT JOIN payments p ON pp.payment_id = p.id
+        LEFT JOIN users u ON pr.dispensed_by = u.id
+        WHERE pr.patient_id = ? AND pr.dispensed = true
+        GROUP BY pr.session_id, pr.created_at, pr.dispensed_at, u.full_name
+        ORDER BY pr.created_at DESC`,
         [patientId]
       );
 
       const prescriptions = rows.map((row: any) => ({
         ...row,
-        prescriptions: JSON.parse(`[${row.prescriptions}]`),
-        payment_methods: row.payment_methods
-          ? row.payment_methods.split(",")
+        payments: row.payments ? JSON.parse(`[${row.payments}]`) : [],
+        prescriptions: row.prescriptions
+          ? JSON.parse(`[${row.prescriptions}]`)
           : [],
       }));
 

@@ -84,7 +84,7 @@ export class PharmacyController {
           WHERE p.dispensed = false
         )
         SELECT 
-          prescriptionId,
+          id,
           created_at,
           patientId,
           clinicId,
@@ -97,8 +97,8 @@ export class PharmacyController {
         ORDER BY created_at ASC
       `);
 
-      const formattedList = (waitingList as RowDataPacket[]).map((item) => ({
-        id: item.prescriptionId,
+      const formattedList = waitingList.map((item) => ({
+        id: item.id,
         createdAt: item.created_at,
         patient: {
           clinicId: item.clinicId,
@@ -176,6 +176,63 @@ export class PharmacyController {
     } catch (error) {
       console.error("Error fetching prescription history:", error);
       res.status(500).json({ error: "Failed to fetch prescription history" });
+    } finally {
+      connection.release();
+    }
+  }
+
+  static async getPendingPrescriptions(
+    req: AuthenticatedRequest,
+    res: Response
+  ) {
+    const { patientId } = req.params;
+    const connection = await pool.getConnection();
+
+    try {
+      const [rows] = await connection.execute<RowDataPacket[]>(
+        `SELECT 
+          p.id,
+          p.created_at as createdAt,
+          p.dosage,
+          p.frequency,
+          p.duration,
+          p.route,
+          p.quantity,
+          d.id as drugId,
+          d.name as genericName,
+          d.strength,
+          d.unit as form,
+          d.prescription_price as salePricePerUnit
+        FROM prescriptions p
+        JOIN drugs d ON p.drug_id = d.id
+        WHERE p.patient_id = ? 
+        AND p.dispensed = false
+        ORDER BY p.created_at DESC`,
+        [patientId]
+      );
+
+      const prescriptions = rows.map((row: any) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        dosage: row.dosage,
+        frequency: row.frequency,
+        duration: row.duration,
+        route: row.route,
+        quantity: row.quantity,
+        drug: {
+          id: row.drugId,
+          genericName: row.genericName,
+          strength: row.strength,
+          form: row.form,
+          salePricePerUnit: row.salePricePerUnit,
+        },
+      }));
+
+      console.log("Sending prescriptions:", prescriptions);
+      res.json(prescriptions);
+    } catch (error) {
+      console.error("Error fetching pending prescriptions:", error);
+      res.status(500).json({ error: "Failed to fetch pending prescriptions" });
     } finally {
       connection.release();
     }

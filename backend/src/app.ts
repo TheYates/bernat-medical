@@ -8,6 +8,7 @@ import prescriptionRoutes from "./routes/prescription.routes";
 import path from "path";
 import fs from "fs";
 import serviceRoutes from "./routes/service.routes";
+import pharmacyRoutes from "./routes/pharmacy.routes";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use(
 app.use("/api", apiRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/services", serviceRoutes);
+app.use("/api/pharmacy", pharmacyRoutes);
 
 // Error handling
 app.use(errorHandler);

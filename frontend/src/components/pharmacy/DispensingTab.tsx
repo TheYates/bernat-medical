@@ -146,11 +146,6 @@ export function DispensingTab() {
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
-
-      await Promise.all([
-        fetchPrescriptions(Number(response.data.id)),
-        fetchPrescriptionHistory(Number(response.data.id)),
-      ]);
     } catch (error) {
       if (value.length >= 7) {
         setPatient(null);
@@ -161,26 +156,29 @@ export function DispensingTab() {
     }
   };
 
-  const fetchPrescriptions = async (patientId: number) => {
+  const fetchPendingPrescriptions = async () => {
+    if (!patient?.id) return;
+
     try {
-      const response = await api.get(`/prescriptions/${patientId}/pending`);
+      const response = await api.get(
+        `/pharmacy/prescriptions/pending/${patient.id}`
+      );
       setPrescriptions(response.data);
     } catch (error) {
       toast.error("Failed to fetch prescriptions");
     }
   };
 
-  const fetchPrescriptionHistory = async (patientId: number) => {
-    setIsLoadingHistory(true);
+  const fetchPrescriptionHistory = async () => {
+    if (!patient?.id) return;
+
     try {
       const response = await api.get(
-        `/pharmacy/prescriptions/history/${patientId}`
+        `/pharmacy/prescriptions/history/${patient.id}`
       );
       setPrescriptionHistory(response.data);
     } catch (error) {
       toast.error("Failed to fetch prescription history");
-    } finally {
-      setIsLoadingHistory(false);
     }
   };
 
@@ -243,8 +241,8 @@ export function DispensingTab() {
       // Refresh all data
       if (patient) {
         await Promise.all([
-          fetchPrescriptions(Number(patient.id)),
-          fetchPrescriptionHistory(Number(patient.id)),
+          fetchPendingPrescriptions(),
+          fetchPrescriptionHistory(),
           fetchWaitingList(),
         ]);
       }
@@ -284,6 +282,17 @@ export function DispensingTab() {
     }
     setExpandedRows(newExpanded);
   };
+
+  useEffect(() => {
+    if (patient?.id) {
+      Promise.all([
+        fetchPendingPrescriptions(),
+        fetchPrescriptionHistory(),
+      ]).catch((error) => {
+        console.error("Error fetching patient data:", error);
+      });
+    }
+  }, [patient]);
 
   return (
     <div className="max-w-[960px] mx-auto">
@@ -551,11 +560,6 @@ export function DispensingTab() {
                       onClick={() => setShowHistory(true)}
                     >
                       View History →
-                      {/* {patient && prescriptionHistory.length > 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          {prescriptionHistory.length}
-                        </Badge>
-                      )} */}
                     </Button>
                   </div>
 

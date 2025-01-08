@@ -466,7 +466,8 @@ export function PrescriptionsTab({
                                 {drug.genericName}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {drug.brandName} •{" "}
+                                {drug.strength}
+                                {drug.unit} •{" "}
                                 {formatCurrency(drug.salePricePerUnit)}
                               </div>
                             </div>

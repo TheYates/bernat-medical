@@ -1,22 +1,61 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, ChevronsUpDown, Loader2, Minus, Plus, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { api } from '@/lib/api';
-import { formatCurrency } from '@/lib/utils';
+import { useState, useMemo, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Minus,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/utils";
 
 interface Drug {
   id: string;
@@ -26,6 +65,7 @@ interface Drug {
   strength: string;
   salePricePerUnit: number;
   stock: number;
+  active: boolean;
 }
 
 interface CartItem extends Drug {
@@ -33,46 +73,61 @@ interface CartItem extends Drug {
 }
 
 const paymentMethods = [
-  { id: 'cash', label: 'Cash' },
-  { id: 'card', label: 'Card' },
-  { id: 'mobile', label: 'Mobile Money' },
-  { id: 'insurance', label: 'Insurance' },
+  { id: "cash", label: "Cash" },
+  { id: "card", label: "Card" },
+  { id: "mobile", label: "Mobile Money" },
+  { id: "insurance", label: "Insurance" },
 ];
 
 export function POSTab() {
-  const [drugs, setDrugs] = useState<Drug[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
+  const [drugs, setDrugs] = useState<Drug[]>([]);
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
-  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({});
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<
+    string[]
+  >([]);
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>(
+    {}
+  );
   const [open, setOpen] = useState(false);
 
-  const totalAmount = cart.reduce((sum, item) => sum + (item.salePricePerUnit * item.quantity), 0);
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + item.salePricePerUnit * item.quantity,
+    0
+  );
 
-  const searchDrugs = async (search: string) => {
-    if (!search) return;
-    
-    setIsLoadingDrugs(true);
-    try {
-      const response = await api.get(`/drugs/search?q=${search}`);
-      setDrugs(response.data);
-    } catch (error) {
-      toast.error("Failed to search drugs");
-    } finally {
-      setIsLoadingDrugs(false);
-    }
-  };
+  const filteredDrugs = useMemo(() => {
+    return drugs.filter((drug) => {
+      const searchLower = searchTerm.toLowerCase();
+      const nameMatches = drug.genericName?.toLowerCase().includes(searchLower);
+      return nameMatches;
+    });
+  }, [searchTerm, drugs]);
+
+  useEffect(() => {
+    const fetchDrugs = async () => {
+      setIsLoadingDrugs(true);
+      try {
+        const response = await api.get("/drugs/active");
+        setDrugs(response.data);
+      } catch (error) {
+        toast.error("Failed to load drugs");
+      } finally {
+        setIsLoadingDrugs(false);
+      }
+    };
+    fetchDrugs();
+  }, []);
 
   const addToCart = (drug: Drug) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === drug.id);
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === drug.id);
       if (existing) {
-        return prev.map(item =>
-          item.id === drug.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+        return prev.map((item) =>
+          item.id === drug.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...prev, { ...drug, quantity: 1 }];
@@ -82,29 +137,31 @@ export function POSTab() {
   };
 
   const updateQuantity = (drugId: string, change: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === drugId) {
-        const newQuantity = item.quantity + change;
-        if (newQuantity < 1) return item;
-        if (newQuantity > item.stock) {
-          toast.error("Quantity exceeds available stock");
-          return item;
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.id === drugId) {
+          const newQuantity = item.quantity + change;
+          if (newQuantity < 1) return item;
+          if (newQuantity > item.stock) {
+            toast.error("Quantity exceeds available stock");
+            return item;
+          }
+          return { ...item, quantity: newQuantity };
         }
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    }));
+        return item;
+      })
+    );
   };
 
   const removeFromCart = (drugId: string) => {
-    setCart(prev => prev.filter(item => item.id !== drugId));
+    setCart((prev) => prev.filter((item) => item.id !== drugId));
   };
 
   const handlePaymentMethodChange = (method: string) => {
-    setSelectedPaymentMethods(prev => {
+    setSelectedPaymentMethods((prev) => {
       const isSelected = prev.includes(method);
       if (isSelected) {
-        const newMethods = prev.filter(m => m !== method);
+        const newMethods = prev.filter((m) => m !== method);
         const { [method]: _, ...rest } = paymentAmounts;
         setPaymentAmounts(rest);
         return newMethods;
@@ -114,28 +171,31 @@ export function POSTab() {
   };
 
   const handlePaymentAmountChange = (method: string, amount: string) => {
-    setPaymentAmounts(prev => ({
+    setPaymentAmounts((prev) => ({
       ...prev,
-      [method]: parseFloat(amount) || 0
+      [method]: parseFloat(amount) || 0,
     }));
   };
 
   const handlePaymentSubmit = async () => {
-    const totalPaid = Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0);
-    
+    const totalPaid = Object.values(paymentAmounts).reduce(
+      (sum, amount) => sum + amount,
+      0
+    );
+
     if (Math.abs(totalPaid - totalAmount) > 0.01) {
       toast.error("Total payment amount must equal the total price");
       return;
     }
 
     try {
-      await api.post('/sales', {
-        items: cart.map(item => ({
+      await api.post("/sales", {
+        items: cart.map((item) => ({
           drugId: item.id,
           quantity: item.quantity,
-          pricePerUnit: item.salePricePerUnit
+          pricePerUnit: item.salePricePerUnit,
         })),
-        payments: paymentAmounts
+        payments: paymentAmounts,
       });
 
       toast.success("Sale completed successfully");
@@ -160,50 +220,63 @@ export function POSTab() {
                   role="combobox"
                   aria-expanded={open}
                   className="w-full justify-between"
+                  disabled={isLoadingDrugs}
                 >
-                  {selectedDrug ? selectedDrug.genericName : "Search drugs..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  {isLoadingDrugs ? (
+                    "Loading medications..."
+                  ) : (
+                    <>
+                      Search medications...
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </>
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
                 <Command>
-                  <CommandInput 
-                    placeholder="Search drugs..." 
-                    onValueChange={searchDrugs}
+                  <CommandInput
+                    placeholder={
+                      isLoadingDrugs ? "Loading..." : "Search medications..."
+                    }
+                    value={searchTerm}
+                    onValueChange={setSearchTerm}
+                    disabled={isLoadingDrugs}
                   />
-                  {isLoadingDrugs ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      <CommandEmpty>No drugs found.</CommandEmpty>
-                      <CommandGroup>
-                        <ScrollArea className="h-72">
-                          {drugs.map((drug) => (
-                            <CommandItem
-                              key={drug.id}
-                              onSelect={() => addToCart(drug)}
-                              className="flex justify-between items-center"
-                            >
-                              <div>
-                                <p>{drug.genericName}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {drug.strength} {drug.form}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p>{formatCurrency(drug.salePricePerUnit)}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Stock: {drug.stock}
-                                </p>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </ScrollArea>
-                      </CommandGroup>
-                    </>
-                  )}
+                  <CommandList>
+                    <CommandEmpty>
+                      {isLoadingDrugs
+                        ? "Loading medications..."
+                        : "No drugs found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      <ScrollArea className="h-72">
+                        {filteredDrugs.map((drug) => (
+                          <CommandItem
+                            key={drug.id}
+                            onSelect={() => {
+                              addToCart(drug);
+                              setOpen(false);
+                              setSearchTerm("");
+                            }}
+                            className="flex justify-between items-center"
+                          >
+                            <div>
+                              <p>{drug.genericName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {drug.strength} • {drug.form}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p>{formatCurrency(drug.salePricePerUnit)}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Stock: {drug.stock}
+                              </p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </ScrollArea>
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
@@ -233,7 +306,9 @@ export function POSTab() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>{formatCurrency(item.salePricePerUnit)}</TableCell>
+                    <TableCell>
+                      {formatCurrency(item.salePricePerUnit)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button
@@ -244,7 +319,9 @@ export function POSTab() {
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
-                        <span className="w-12 text-center">{item.quantity}</span>
+                        <span className="w-12 text-center">
+                          {item.quantity}
+                        </span>
                         <Button
                           variant="outline"
                           size="icon"
@@ -255,7 +332,9 @@ export function POSTab() {
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>{formatCurrency(item.salePricePerUnit * item.quantity)}</TableCell>
+                    <TableCell>
+                      {formatCurrency(item.salePricePerUnit * item.quantity)}
+                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -289,8 +368,8 @@ export function POSTab() {
             </div>
           </div>
 
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             disabled={cart.length === 0}
             onClick={() => setShowPaymentDialog(true)}
           >
@@ -327,20 +406,28 @@ export function POSTab() {
                 {selectedPaymentMethods.map((method) => (
                   <div key={method} className="grid gap-2">
                     <label className="text-sm font-medium">
-                      {paymentMethods.find(m => m.id === method)?.label} Amount
+                      {paymentMethods.find((m) => m.id === method)?.label}{" "}
+                      Amount
                     </label>
                     <Input
                       type="number"
-                      value={paymentAmounts[method] || ''}
-                      onChange={(e) => handlePaymentAmountChange(method, e.target.value)}
+                      value={paymentAmounts[method] || ""}
+                      onChange={(e) =>
+                        handlePaymentAmountChange(method, e.target.value)
+                      }
                       placeholder="Enter amount"
                     />
                   </div>
                 ))}
 
                 <div className="text-sm text-muted-foreground">
-                  Remaining: {formatCurrency(
-                    totalAmount - Object.values(paymentAmounts).reduce((sum, amount) => sum + amount, 0)
+                  Remaining:{" "}
+                  {formatCurrency(
+                    totalAmount -
+                      Object.values(paymentAmounts).reduce(
+                        (sum, amount) => sum + amount,
+                        0
+                      )
                   )}
                 </div>
               </div>
@@ -348,15 +435,16 @@ export function POSTab() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPaymentDialog(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handlePaymentSubmit}>
-              Complete Payment
-            </Button>
+            <Button onClick={handlePaymentSubmit}>Complete Payment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
-} 
+}

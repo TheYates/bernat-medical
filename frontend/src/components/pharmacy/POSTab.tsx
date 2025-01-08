@@ -63,7 +63,9 @@ interface Drug {
   brandName: string;
   form: string;
   strength: string;
-  salePricePerUnit: number;
+  posPrice: number;
+  prescriptionPrice: number;
+  salePricePerUnit: number; // Keep for backward compatibility
   stock: number;
   active: boolean;
 }
@@ -78,6 +80,11 @@ const paymentMethods = [
   { id: "mobile", label: "Mobile Money" },
   { id: "insurance", label: "Insurance" },
 ];
+
+// Add a function to ensure price exists
+const getDrugPrice = (drug: Drug) => {
+  return drug.posPrice ?? drug.salePricePerUnit ?? 0;
+};
 
 export function POSTab() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,7 +102,7 @@ export function POSTab() {
   const [open, setOpen] = useState(false);
 
   const totalAmount = cart.reduce(
-    (sum, item) => sum + item.salePricePerUnit * item.quantity,
+    (sum, item) => sum + getDrugPrice(item) * item.quantity,
     0
   );
 
@@ -193,7 +200,7 @@ export function POSTab() {
         items: cart.map((item) => ({
           drugId: item.id,
           quantity: item.quantity,
-          pricePerUnit: item.salePricePerUnit,
+          pricePerUnit: getDrugPrice(item),
         })),
         payments: paymentAmounts,
       });
@@ -267,7 +274,7 @@ export function POSTab() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p>{formatCurrency(drug.salePricePerUnit)}</p>
+                              <p>{formatCurrency(getDrugPrice(drug))}</p>
                               <p className="text-sm text-muted-foreground">
                                 Stock: {drug.stock}
                               </p>
@@ -306,9 +313,7 @@ export function POSTab() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {formatCurrency(item.salePricePerUnit)}
-                    </TableCell>
+                    <TableCell>{formatCurrency(getDrugPrice(item))}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button
@@ -333,7 +338,7 @@ export function POSTab() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {formatCurrency(item.salePricePerUnit * item.quantity)}
+                      {formatCurrency(getDrugPrice(item) * item.quantity)}
                     </TableCell>
                     <TableCell>
                       <Button

@@ -3,19 +3,17 @@ import { pool } from "../db";
 import { RowDataPacket } from "mysql2";
 
 export const getDrugs = async (req: Request, res: Response) => {
-  console.log("getDrugs endpoint hit");
-  console.log("Auth header:", req.headers.authorization);
-
   try {
     const query = `
       SELECT 
         id,
         name as genericName,
+        unit as form,
         strength,
-        unit,
-        min_stock as minimumStock,
-        stock as saleQuantity,
-        prescription_price as salePricePerUnit,
+        COALESCE(pos_price, purchase_price) as posPrice,
+        prescription_price,
+        purchase_price as salePricePerUnit,
+        stock,
         active
       FROM drugs
       WHERE active = 1
@@ -29,8 +27,21 @@ export const getDrugs = async (req: Request, res: Response) => {
       return res.json([]);
     }
 
-    console.log(`Found ${drugs.length} drugs`);
-    res.json(drugs);
+    // Transform to match frontend interface
+    const transformedDrugs = drugs.map((drug: any) => ({
+      id: drug.id,
+      genericName: drug.genericName,
+      brandName: null,
+      form: drug.form,
+      strength: drug.strength,
+      posPrice: drug.posPrice,
+      prescriptionPrice: drug.prescription_price,
+      salePricePerUnit: drug.salePricePerUnit,
+      stock: drug.stock,
+      active: Boolean(drug.active),
+    }));
+
+    res.json(transformedDrugs);
   } catch (error) {
     console.error("Error in getDrugs:", error);
     res.status(500).json({ message: "Failed to fetch drugs" });
@@ -48,18 +59,20 @@ export const searchDrugs = async (req: Request, res: Response) => {
     const query = `
       SELECT 
         id,
-        name as genericName,
+        generic_name,
+        brand_name,
+        form,
         strength,
-        unit,
-        min_stock as minimumStock,
-        stock as saleQuantity,
+        COALESCE(pos_price, sale_price_per_unit) as posPrice,
         prescription_price,
+        sale_price_per_unit as salePricePerUnit,
+        stock,
         active
       FROM drugs
       WHERE 
         active = 1 
-        AND name LIKE ?
-      ORDER BY name ASC
+        AND generic_name LIKE ?
+      ORDER BY generic_name ASC
       LIMIT 50
     `;
 
@@ -72,13 +85,14 @@ export const searchDrugs = async (req: Request, res: Response) => {
     // Transform the data to match the frontend interface
     const transformedDrugs = drugs.map((drug: any) => ({
       id: drug.id,
-      genericName: drug.genericName,
-      brandName: null,
+      genericName: drug.generic_name,
+      brandName: drug.brand_name,
+      form: drug.form,
       strength: drug.strength,
-      form: drug.unit,
-      saleQuantity: drug.saleQuantity,
-      minimumStock: drug.minimumStock,
-      salePricePerUnit: drug.prescription_price,
+      posPrice: drug.posPrice,
+      prescriptionPrice: drug.prescription_price,
+      salePricePerUnit: drug.salePricePerUnit,
+      stock: drug.stock,
       active: Boolean(drug.active),
     }));
 
@@ -97,7 +111,9 @@ export const getActiveDrugs = async (req: Request, res: Response) => {
         name as genericName,
         unit as form,
         strength,
-        prescription_price as salePricePerUnit,
+        COALESCE(pos_price, purchase_price) as posPrice,
+        prescription_price,
+        purchase_price as salePricePerUnit,
         stock,
         active
       FROM drugs
@@ -110,8 +126,16 @@ export const getActiveDrugs = async (req: Request, res: Response) => {
 
     // Transform to match frontend interface
     const transformedDrugs = drugs.map((drug: any) => ({
-      ...drug,
-      brandName: null, // Add brandName as null since it's not in DB
+      id: drug.id,
+      genericName: drug.genericName,
+      brandName: null,
+      form: drug.form,
+      strength: drug.strength,
+      posPrice: drug.posPrice,
+      prescriptionPrice: drug.prescription_price,
+      salePricePerUnit: drug.salePricePerUnit,
+      stock: drug.stock,
+      active: Boolean(drug.active),
     }));
 
     res.json(transformedDrugs);

@@ -110,7 +110,7 @@ export function BillingPage() {
   const onClinicIdChange = async (value: string) => {
     setClinicId(value);
 
-    if (!value || value.length < 7) {
+    if (!value || value.length < 3) {
       setPatient(null);
       setItems([]);
       setHistoryItems([]);
@@ -120,11 +120,8 @@ export function BillingPage() {
     }
 
     try {
-      const patientResponse = await api.get("/patients/search", {
-        params: { searchTerm: value },
-      });
-
-      const patientData = patientResponse.data[0];
+      const patientResponse = await api.get(`/patients/${value}`);
+      const patientData = patientResponse.data;
 
       if (!patientData || !patientData.id) {
         setPatient(null);
@@ -149,6 +146,7 @@ export function BillingPage() {
       setTotalPages(historyResponse.data.meta.totalPages);
       setPage(1);
     } catch (error) {
+      toast.error("Failed to fetch patient details");
       setPatient(null);
       setItems([]);
       setHistoryItems([]);

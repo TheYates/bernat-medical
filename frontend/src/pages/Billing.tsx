@@ -169,28 +169,59 @@ export function BillingPage() {
     methods: string[];
     amounts: Record<string, number>;
   }) => {
-    if (!selectedItem) return;
+    if (!selectedItem) {
+      toast.error("No item selected for payment");
+      return;
+    }
+
+    // Debug logs
+    console.log("Selected Item:", selectedItem);
+    console.log("Payment Data:", data);
+    console.log("Methods:", data.methods);
+    console.log("Amounts:", data.amounts);
+
+    // Validate payment data
+    if (!data.methods?.length) {
+      toast.error("Payment method is required");
+      return;
+    }
+
+    if (!data.amounts || Object.keys(data.amounts).length === 0) {
+      toast.error("Payment amount is required");
+      return;
+    }
 
     try {
       // If processing multiple items
       if (items.length > 1 && selectedItem.service.includes(",")) {
         // Process each payment
         for (const item of items) {
-          await api.post(`/billing/${item.id}/payment`, {
+          if (!item.id || !item.request_type) {
+            console.error("Invalid item data:", item);
+            continue;
+          }
+
+          const paymentData = {
             methods: data.methods,
-            amounts: {
-              [data.methods[0]]: Number(item.amount), // Split amount per item
-            },
+            amounts: data.amounts,
             requestType: item.request_type,
-          });
+          };
+
+          console.log("Processing batch payment:", paymentData);
+
+          await api.post(`/billing/${item.id}/payment`, paymentData);
         }
       } else {
         // Single payment processing
-        await api.post(`/billing/${selectedItem.id}/payment`, {
+        const paymentData = {
           methods: data.methods,
           amounts: data.amounts,
           requestType: selectedItem.request_type,
-        });
+        };
+
+        console.log("Processing single payment:", paymentData);
+
+        await api.post(`/billing/${selectedItem.id}/payment`, paymentData);
       }
 
       toast.success("Payment(s) processed successfully");
@@ -198,15 +229,24 @@ export function BillingPage() {
       setSelectedItem(null);
 
       // Refresh the lists
-      setTimeout(async () => {
-        if (patient) {
-          await fetchPendingPayments(Number(patient.id));
-          await fetchWaitingListCount();
-        }
-      }, 500);
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error("Failed to process payment");
+      if (patient) {
+        await fetchPendingPayments(Number(patient.id));
+        await fetchWaitingListCount();
+      }
+    } catch (error: any) {
+      console.error("Payment error details:", {
+        error,
+        response: error.response?.data,
+        selectedItem,
+        paymentData: data,
+      });
+
+      // Show more specific error message
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.details ||
+        "Failed to process payment. Please check the payment details.";
+      toast.error(errorMessage);
     }
   };
 

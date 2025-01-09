@@ -49,7 +49,7 @@ export const getPendingPayments = async (req: Request, res: Response) => {
       [patientId, patientId]
     );
 
-    console.log("Pending payments:", payments);
+    // console.log("Pending payments:", payments);
     res.json(payments);
   } catch (error) {
     console.error("Error fetching pending payments:", error);
@@ -139,22 +139,72 @@ export const processPayment = async (
   const connection = await pool.getConnection();
 
   try {
-    await connection.beginTransaction();
+    // Validate required fields
     const { id } = req.params;
     const { methods, amounts, requestType } = req.body;
+
+    if (!id || !methods || !amounts || !requestType) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        details: {
+          id: !id ? "Request ID is required" : null,
+          methods: !methods ? "Payment methods are required" : null,
+          amounts: !amounts ? "Payment amounts are required" : null,
+          requestType: !requestType ? "Request type is required" : null,
+        },
+      });
+    }
+
+    // Validate request type
+    if (!["service_request", "lab_request"].includes(requestType)) {
+      return res.status(400).json({
+        error:
+          "Invalid request type. Must be 'service_request' or 'lab_request'",
+      });
+    }
+
+    // Validate user
+    if (!req.user?.id) {
+      return res.status(401).json({
+        error: "User ID is required for payment processing",
+      });
+    }
+
+    await connection.beginTransaction();
 
     // Create payment records for each method
     const paymentIds = [];
     for (const method of methods) {
+      const amount = amounts[method];
+
+      // Validate amount
+      if (!amount || isNaN(Number(amount))) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: `Invalid amount for payment method: ${method}`,
+        });
+      }
+
       const [result] = await connection.execute<ResultSetHeader>(
         `INSERT INTO payments (method, amount, status, recorded_by) 
          VALUES (?, ?, ?, ?)`,
-        [method.toLowerCase(), amounts[method], "completed", req.user?.id]
+        [method.toLowerCase(), Number(amount), "completed", req.user.id]
       );
       paymentIds.push(result.insertId);
     }
 
     if (requestType === "service_request") {
+      // Check if service request exists
+      const [serviceRequest] = await connection.execute<RowDataPacket[]>(
+        "SELECT id FROM service_requests WHERE id = ?",
+        [id]
+      );
+
+      if (!serviceRequest.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Service request not found" });
+      }
+
       // Update service request status
       await connection.execute(
         `UPDATE service_requests 
@@ -162,7 +212,7 @@ export const processPayment = async (
              paid_at = NOW(),
              paid_by = ?
          WHERE id = ?`,
-        [req.user?.id, id]
+        [req.user.id, id]
       );
 
       // Update service request items
@@ -172,7 +222,7 @@ export const processPayment = async (
              paid_at = NOW(),
              paid_by = ?
          WHERE request_id = ?`,
-        [req.user?.id, id]
+        [req.user.id, id]
       );
 
       // Create payment links for each payment
@@ -183,21 +233,18 @@ export const processPayment = async (
           [id, paymentId]
         );
       }
-
-      // Create audit log
-      await createAuditLog({
-        userId: req.user?.id as number,
-        actionType: "create",
-        entityType: "payment",
-        entityId: paymentIds.join(","),
-        details: JSON.stringify({
-          requestType,
-          amounts,
-          methods,
-          requestId: id,
-        }),
-      });
     } else if (requestType === "lab_request") {
+      // Check if lab request exists
+      const [labRequest] = await connection.execute<RowDataPacket[]>(
+        "SELECT id FROM lab_requests WHERE id = ?",
+        [id]
+      );
+
+      if (!labRequest.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Lab request not found" });
+      }
+
       // Update lab request status
       await connection.execute(
         `UPDATE lab_requests 
@@ -205,7 +252,7 @@ export const processPayment = async (
              paid_at = NOW(),
              paid_by = ?
          WHERE id = ?`,
-        [req.user?.id, id]
+        [req.user.id, id]
       );
 
       // Create payment links for each payment
@@ -216,28 +263,35 @@ export const processPayment = async (
           [id, paymentId]
         );
       }
-
-      // Create audit log
-      await createAuditLog({
-        userId: req.user?.id as number,
-        actionType: "create",
-        entityType: "payment",
-        entityId: paymentIds.join(","),
-        details: JSON.stringify({
-          requestType,
-          amounts,
-          methods,
-          requestId: id,
-        }),
-      });
     }
 
+    // Create audit log
+    await createAuditLog({
+      userId: req.user.id,
+      actionType: "create",
+      entityType: "payment",
+      entityId: paymentIds.join(","),
+      details: JSON.stringify({
+        requestType,
+        amounts,
+        methods,
+        requestId: id,
+      }),
+    });
+
     await connection.commit();
-    res.json({ ids: paymentIds, status: "Completed" });
+    res.json({
+      success: true,
+      ids: paymentIds,
+      status: "Completed",
+    });
   } catch (error) {
     await connection.rollback();
     console.error("Error processing payment:", error);
-    res.status(500).json({ error: "Failed to process payment" });
+    res.status(500).json({
+      error: "Failed to process payment",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
   } finally {
     connection.release();
   }

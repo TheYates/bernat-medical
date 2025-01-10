@@ -43,22 +43,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users2, Trash2, FileText, Loader2 } from "lucide-react";
+import { Users2, FileText, Loader2, Banknote, CreditCard } from "lucide-react";
 import { calculateAge, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { api } from "@/lib/api";
-import { Investigation } from "@/services/investigations.service";
-
-interface Patient {
-  id: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  dateOfBirth: string;
-  gender: string;
-  clinicId: string;
-}
+import { PatientDetails } from "@/components/shared/patient-details";
+import { Patient } from "@/types/patient";
 
 interface XrayWaitingListItem {
   id: string;
@@ -77,6 +68,30 @@ interface XrayWaitingListItem {
     price: number;
   };
   createdAt: string;
+}
+
+interface Payment {
+  method: string;
+  amount: number;
+}
+
+interface Investigation {
+  id: string;
+  patient_id: string;
+  status: string;
+  createdAt: string;
+  result?: string;
+  file_url?: string;
+  service: {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+  };
+  payments?: Payment[];
+  performedBy?: {
+    fullName: string;
+  };
 }
 
 const formSchema = z.object({
@@ -105,6 +120,7 @@ export function XrayPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [investigationToDelete, setInvestigationToDelete] =
     useState<Investigation | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -134,7 +150,7 @@ export function XrayPage() {
     try {
       const response = await api.get(`/patients/${value}`);
       setPatient(response.data);
-      fetchPatientInvestigations(response.data.id);
+      fetchPatientInvestigations(String(response.data.id));
     } catch (error) {
       toast.error("Failed to fetch patient details");
     }
@@ -168,7 +184,7 @@ export function XrayPage() {
       setShowResultDialog(false);
       setResult("");
       setResultFile(null);
-      fetchPatientInvestigations(patient.id);
+      fetchPatientInvestigations(String(patient.id));
       fetchWaitingList();
     } catch (error) {
       toast.error("Failed to update result");
@@ -187,7 +203,7 @@ export function XrayPage() {
       setShowDeleteDialog(false);
       setDeleteReason("");
       setInvestigationToDelete(null);
-      fetchPatientInvestigations(patient.id);
+      fetchPatientInvestigations(String(patient.id));
     } catch (error) {
       toast.error("Failed to delete investigation request");
     }
@@ -278,178 +294,146 @@ export function XrayPage() {
                   </Button>
                 </div>
 
-                {/* Patient Details Grid */}
-                <div className="grid grid-cols-3 gap-2 bg-muted/30 rounded-md p-4">
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Name
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient
-                        ? `${patient.firstName} ${patient.middleName} ${patient.lastName}`
-                        : "-"}
-                    </p>
-                  </div>
+                {/* Replace Patient Details Grid with PatientDetails component */}
+                <PatientDetails patient={patient} />
 
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Age
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient ? calculateAge(patient.dateOfBirth) : "-"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1 text-center">
-                    <label className="text-sm font-medium text-foreground/70">
-                      Gender
-                    </label>
-                    <p className="text-lg font-medium">
-                      {patient?.gender || "-"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Investigation Results Section Header */}
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-background px-2 text-muted-foreground">
-                      X-ray & Scan Results
+                      INVESTIGATION DETAILS
                     </span>
                   </div>
                 </div>
 
-                {/* Results Table */}
-                <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Investigation</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Result</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Requested By</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {!patient ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            className="text-center text-muted-foreground"
+                <Card>
+                  <CardContent className="p-6">
+                    {showHistory ? (
+                      <>
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h3 className="font-semibold">
+                              Investigation History
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              View completed x-ray and scan results
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowHistory(false)}
                           >
-                            Enter clinic ID to view patient's investigations
-                          </TableCell>
-                        </TableRow>
-                      ) : isLoadingPatientData ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center">
-                            Loading patient's investigations...
-                          </TableCell>
-                        </TableRow>
-                      ) : patientInvestigations.length > 0 ? (
-                        patientInvestigations.map((investigation) => (
-                          <TableRow
-                            key={investigation.id}
-                            className={
-                              investigation.status === "Pending"
-                                ? "cursor-pointer hover:bg-muted/50"
-                                : investigation.result
-                                ? "cursor-pointer hover:bg-muted/50"
-                                : ""
-                            }
-                            onClick={() => handleRowClick(investigation)}
-                          >
-                            <TableCell>
-                              {format(
-                                new Date(investigation.createdAt),
-                                "dd MMM yyyy"
-                              )}
-                            </TableCell>
-                            <TableCell>{investigation.service.name}</TableCell>
-                            <TableCell>
-                              {investigation.service.category}
-                            </TableCell>
-                            <TableCell>
-                              {formatCurrency(investigation.service.price)}
-                            </TableCell>
-                            <TableCell>
-                              {investigation.status !== "Pending" ? (
-                                <div className="max-w-[200px]">
-                                  {investigation.result ? (
-                                    <span
-                                      className="truncate block cursor-pointer hover:text-primary"
-                                      title="Click to view full result"
-                                    >
-                                      {investigation.result.length > 50
-                                        ? `${investigation.result.substring(
-                                            0,
-                                            50
-                                          )}...`
-                                        : investigation.result}
-                                    </span>
-                                  ) : (
-                                    "-"
+                            ← Back to Requests
+                          </Button>
+                        </div>
+
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Test</TableHead>
+                              <TableHead>Details</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Payment</TableHead>
+                              <TableHead>Performed By</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {patientInvestigations.map((investigation) => (
+                              <TableRow key={investigation.id}>
+                                <TableCell>
+                                  {format(
+                                    new Date(investigation.createdAt),
+                                    "dd MMM yyyy"
                                   )}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground italic">
-                                  Click to update result
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  investigation.status === "Completed"
-                                    ? "success"
-                                    : investigation.status === "In Progress"
-                                    ? "warning"
-                                    : investigation.status === "Cancelled"
-                                    ? "destructive"
-                                    : "default"
-                                }
-                              >
-                                {investigation.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {investigation.requestedBy.fullName}
-                            </TableCell>
-                            <TableCell>
-                              {investigation.status === "Pending" && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={(e) =>
-                                    handleDelete(investigation, e)
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            className="text-center text-muted-foreground"
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">
+                                      {investigation.service.name}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {investigation.service.category}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedResult(investigation);
+                                      setShowResultDetails(true);
+                                    }}
+                                  >
+                                    View Details
+                                  </Button>
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(investigation.service.price)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-2">
+                                    {investigation.payments?.map(
+                                      (payment: Payment, index: number) => (
+                                        <div
+                                          key={`payment-${index}`}
+                                          className="flex items-center gap-2"
+                                        >
+                                          {payment.method
+                                            .toLowerCase()
+                                            .includes("cash") ? (
+                                            <Banknote className="h-4 w-4" />
+                                          ) : (
+                                            <CreditCard className="h-4 w-4" />
+                                          )}
+                                          <div className="flex flex-col">
+                                            <p className="text-sm font-medium">
+                                              {payment.method}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {formatCurrency(payment.amount)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {investigation.performedBy?.fullName || "-"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center mb-4">
+                          <div>
+                            <h3 className="font-semibold">
+                              Process Investigations
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              Select investigation to process
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowHistory(true)}
                           >
-                            No investigations found for this patient
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                            View History →
+                          </Button>
+                        </div>
+
+                        {/* Existing investigation table */}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </form>
             </Form>
           </CardContent>
@@ -563,11 +547,11 @@ export function XrayPage() {
                     </div>
                   </div>
 
-                  {selectedResult.fileUrl && (
+                  {selectedResult.file_url && (
                     <div className="mt-4 flex items-center gap-2">
                       <a
                         href={`${import.meta.env.VITE_API_URL}${
-                          selectedResult.fileUrl
+                          selectedResult.file_url
                         }`}
                         target="_blank"
                         rel="noopener noreferrer"

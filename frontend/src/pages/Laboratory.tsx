@@ -43,7 +43,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users2, Trash2, FileText, Loader2 } from "lucide-react";
+import {
+  Users2,
+  Trash2,
+  FileText,
+  Loader2,
+  Banknote,
+  CreditCard,
+} from "lucide-react";
 import { calculateAge, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -53,6 +60,7 @@ import {
   type LabWaitingListItem,
 } from "@/services/lab-waiting-list.service";
 import { Investigation } from "@/services/investigations.service";
+import { Payment } from "@/services/prescriptions.service";
 
 interface Patient {
   id: string;
@@ -90,6 +98,7 @@ export function LaboratoryPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [investigationToDelete, setInvestigationToDelete] =
     useState<Investigation | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -345,7 +354,110 @@ export function LaboratoryPage() {
                 </div>
 
                 {/* Results Table */}
-                <div className="space-y-4">
+
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="font-semibold">
+                      {showHistory ? "Investigation History" : "Process Tests"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {showHistory
+                        ? "View completed laboratory test results"
+                        : "Select test to process"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowHistory(!showHistory)}
+                  >
+                    {showHistory ? "← Back to Tests" : "View History →"}
+                  </Button>
+                </div>
+
+                {showHistory ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Test</TableHead>
+                        <TableHead>Result</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Requested By</TableHead>
+                        <TableHead>Performed By</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {patientInvestigations.map((investigation) => (
+                        <TableRow key={investigation.id}>
+                          <TableCell>
+                            <div>
+                              {format(
+                                new Date(investigation.createdAt),
+                                "dd MMM yyyy"
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                {format(
+                                  new Date(investigation.createdAt),
+                                  "hh:mm a"
+                                )}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">
+                                {investigation.service.name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {investigation.service.category}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedResult(investigation);
+                                setShowResultDetails(true);
+                              }}
+                            >
+                              . . .
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            {formatCurrency(investigation.service.price)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                investigation.status === "Completed"
+                                  ? "success"
+                                  : investigation.status === "In Progress"
+                                  ? "warning"
+                                  : investigation.status === "Cancelled"
+                                  ? "destructive"
+                                  : "default"
+                              }
+                            >
+                              {investigation.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {investigation.requestedBy.fullName}
+                          </TableCell>
+                          <TableCell>
+                            {investigation.status === "Completed" &&
+                            investigation.performedBy
+                              ? investigation.performedBy.fullName
+                              : "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -375,77 +487,49 @@ export function LaboratoryPage() {
                             Loading patient's investigations...
                           </TableCell>
                         </TableRow>
-                      ) : patientInvestigations.length > 0 ? (
-                        patientInvestigations.map((investigation) => (
-                          <TableRow
-                            key={investigation.id}
-                            className={
+                      ) : patientInvestigations.filter(
+                          (inv) => inv.status === "Pending"
+                        ).length > 0 ? (
+                        patientInvestigations
+                          .filter(
+                            (investigation) =>
                               investigation.status === "Pending"
-                                ? "cursor-pointer hover:bg-muted/50"
-                                : investigation.result
-                                ? "cursor-pointer hover:bg-muted/50"
-                                : ""
-                            }
-                            onClick={() => handleRowClick(investigation)}
-                          >
-                            <TableCell>
-                              {format(
-                                new Date(investigation.createdAt),
-                                "dd MMM yyyy"
-                              )}
-                            </TableCell>
-                            <TableCell>{investigation.service.name}</TableCell>
-                            <TableCell>
-                              {investigation.service.category}
-                            </TableCell>
-                            <TableCell>
-                              {formatCurrency(investigation.service.price)}
-                            </TableCell>
-                            <TableCell>
-                              {investigation.status !== "Pending" ? (
-                                <div className="max-w-[200px]">
-                                  {investigation.result ? (
-                                    <span
-                                      className="truncate block cursor-pointer hover:text-primary"
-                                      title="Click to view full result"
-                                    >
-                                      {investigation.result.length > 50
-                                        ? `${investigation.result.substring(
-                                            0,
-                                            50
-                                          )}...`
-                                        : investigation.result}
-                                    </span>
-                                  ) : (
-                                    "-"
-                                  )}
-                                </div>
-                              ) : (
+                          )
+                          .map((investigation) => (
+                            <TableRow
+                              key={investigation.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleRowClick(investigation)}
+                            >
+                              <TableCell>
+                                {format(
+                                  new Date(investigation.createdAt),
+                                  "dd MMM yyyy"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {investigation.service.name}
+                              </TableCell>
+                              <TableCell>
+                                {investigation.service.category}
+                              </TableCell>
+                              <TableCell>
+                                {formatCurrency(investigation.service.price)}
+                              </TableCell>
+                              <TableCell>
                                 <span className="text-muted-foreground italic">
                                   Click to update result
                                 </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  investigation.status === "Completed"
-                                    ? "success"
-                                    : investigation.status === "In Progress"
-                                    ? "warning"
-                                    : investigation.status === "Cancelled"
-                                    ? "destructive"
-                                    : "default"
-                                }
-                              >
-                                {investigation.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {investigation.requestedBy.fullName}
-                            </TableCell>
-                            <TableCell>
-                              {investigation.status === "Pending" && (
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="default">
+                                  {investigation.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {investigation.requestedBy.fullName}
+                              </TableCell>
+                              <TableCell>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -456,23 +540,22 @@ export function LaboratoryPage() {
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
+                              </TableCell>
+                            </TableRow>
+                          ))
                       ) : (
                         <TableRow>
                           <TableCell
                             colSpan={8}
                             className="text-center text-muted-foreground"
                           >
-                            No investigations found for this patient
+                            No pending investigations found for this patient
                           </TableCell>
                         </TableRow>
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                )}
               </form>
             </Form>
           </CardContent>

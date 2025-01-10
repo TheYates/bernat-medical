@@ -1,13 +1,13 @@
-import { Request, Response } from 'express';
-import { pool } from '../db';
-import { RowDataPacket } from 'mysql2';
-import { AuthenticatedRequest } from '../types/auth';
-import { createAuditLog } from '../services/audit.service';
-import path from 'path';
+import { Request, Response } from "express";
+import { pool } from "../db";
+import { RowDataPacket } from "mysql2";
+import { AuthenticatedRequest } from "../types/auth";
+import { createAuditLog } from "../services/audit.service";
+import path from "path";
 
 export const getWaitingList = async (req: Request, res: Response) => {
   try {
-    const [rows] = await pool.execute(
+    const [rows] = (await pool.execute(
       `SELECT 
         lr.id,
         lr.created_at as createdAt,
@@ -27,34 +27,34 @@ export const getWaitingList = async (req: Request, res: Response) => {
       JOIN patients p ON lr.patient_id = p.id
       JOIN services s ON lr.service_id = s.id
       WHERE lr.status = 'Pending'
-      ORDER BY lr.created_at ASC`,
-    ) as [RowDataPacket[], any];
+      ORDER BY lr.created_at ASC`
+    )) as [RowDataPacket[], any];
 
-    const formattedRows = rows.map(row => ({
+    const formattedRows = rows.map((row) => ({
       id: row.id,
       createdAt: row.createdAt,
       status: row.status,
       patient: {
-        id: row['patient.id'],
-        clinicId: row['patient.clinicId'],
-        firstName: row['patient.firstName'],
-        middleName: row['patient.middleName'],
-        lastName: row['patient.lastName'],
-        dateOfBirth: row['patient.dateOfBirth'],
-        gender: row['patient.gender'],
+        id: row["patient.id"],
+        clinicId: row["patient.clinicId"],
+        firstName: row["patient.firstName"],
+        middleName: row["patient.middleName"],
+        lastName: row["patient.lastName"],
+        dateOfBirth: row["patient.dateOfBirth"],
+        gender: row["patient.gender"],
       },
       service: {
-        id: row['service.id'],
-        name: row['service.name'],
-        category: row['service.category'],
-        price: row['service.price'],
-      }
+        id: row["service.id"],
+        name: row["service.name"],
+        category: row["service.category"],
+        price: row["service.price"],
+      },
     }));
 
     res.json(formattedRows);
   } catch (error) {
-    console.error('Error fetching waiting list:', error);
-    res.status(500).json({ message: 'Failed to fetch waiting list' });
+    console.error("Error fetching waiting list:", error);
+    res.status(500).json({ message: "Failed to fetch waiting list" });
   }
 };
 
@@ -62,7 +62,7 @@ export const getPatientHistory = async (req: Request, res: Response) => {
   try {
     const { patientId } = req.params;
 
-    const [rows] = await pool.execute(
+    const [rows] = (await pool.execute(
       `SELECT 
         lr.id,
         lr.created_at as createdAt,
@@ -74,50 +74,62 @@ export const getPatientHistory = async (req: Request, res: Response) => {
         s.category as 'service.category',
         s.price as 'service.price',
         u.username as 'requestedBy.username',
-        u.full_name as 'requestedBy.fullName'
+        u.full_name as 'requestedBy.fullName',
+        performed.username as 'performedBy.username',
+        performed.full_name as 'performedBy.fullName'
       FROM lab_requests lr
       JOIN services s ON lr.service_id = s.id
       JOIN users u ON lr.requested_by = u.id
+      LEFT JOIN users performed ON lr.completed_by = performed.id
       WHERE lr.patient_id = ?
       ORDER BY lr.created_at DESC`,
       [patientId]
-    ) as [RowDataPacket[], any];
+    )) as [RowDataPacket[], any];
 
-    const formattedRows = rows.map(row => ({
+    const formattedRows = rows.map((row) => ({
       id: row.id,
       createdAt: row.createdAt,
       status: row.status,
       result: row.result,
       fileUrl: row.fileUrl,
       service: {
-        id: row['service.id'],
-        name: row['service.name'],
-        category: row['service.category'],
-        price: row['service.price'],
+        id: row["service.id"],
+        name: row["service.name"],
+        category: row["service.category"],
+        price: row["service.price"],
       },
       requestedBy: {
-        username: row['requestedBy.username'],
-        fullName: row['requestedBy.fullName'],
-      }
+        username: row["requestedBy.username"],
+        fullName: row["requestedBy.fullName"],
+      },
+      performedBy: row["performedBy.fullName"]
+        ? {
+            username: row["performedBy.username"],
+            fullName: row["performedBy.fullName"],
+          }
+        : null,
     }));
 
     res.json(formattedRows);
   } catch (error) {
-    console.error('Error fetching patient history:', error);
-    res.status(500).json({ message: 'Failed to fetch patient history' });
+    console.error("Error fetching patient history:", error);
+    res.status(500).json({ message: "Failed to fetch patient history" });
   }
 };
 
-export const updateResult = async (req: AuthenticatedRequest, res: Response) => {
+export const updateResult = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     const { requestId } = req.params;
     const { result } = req.body;
     const fileUrl = req.file ? `/api/uploads/${req.file.filename}` : null;
 
-    console.log('File details:', {
+    console.log("File details:", {
       file: req.file,
       fileUrl,
-      fullPath: path.join(__dirname, '../uploads', req.file?.filename || '')
+      fullPath: path.join(__dirname, "../uploads", req.file?.filename || ""),
     });
 
     await pool.execute(
@@ -133,21 +145,24 @@ export const updateResult = async (req: AuthenticatedRequest, res: Response) => 
 
     await createAuditLog({
       userId: req.user?.id || 0,
-      actionType: 'update',
-      entityType: 'lab_request',
+      actionType: "update",
+      entityType: "lab_request",
       entityId: requestId,
       details: { result, fileUrl },
-      ipAddress: req.ip || 'unknown'
+      ipAddress: req.ip || "unknown",
     });
 
-    res.json({ message: 'Result updated successfully' });
+    res.json({ message: "Result updated successfully" });
   } catch (error) {
-    console.error('Error updating result:', error);
-    res.status(500).json({ message: 'Failed to update result' });
+    console.error("Error updating result:", error);
+    res.status(500).json({ message: "Failed to update result" });
   }
 };
 
-export const deleteRequest = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteRequest = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     const { requestId } = req.params;
     const { reason } = req.body;
@@ -164,21 +179,24 @@ export const deleteRequest = async (req: AuthenticatedRequest, res: Response) =>
 
     await createAuditLog({
       userId: req.user?.id || 0,
-      actionType: 'delete',
-      entityType: 'lab_request',
+      actionType: "delete",
+      entityType: "lab_request",
       entityId: requestId,
       details: { reason },
-      ipAddress: req.ip || 'unknown'
+      ipAddress: req.ip || "unknown",
     });
 
-    res.json({ message: 'Request cancelled successfully' });
+    res.json({ message: "Request cancelled successfully" });
   } catch (error) {
-    console.error('Error cancelling request:', error);
-    res.status(500).json({ message: 'Failed to cancel request' });
+    console.error("Error cancelling request:", error);
+    res.status(500).json({ message: "Failed to cancel request" });
   }
 };
 
-export const updateStatus = async (req: AuthenticatedRequest, res: Response) => {
+export const updateStatus = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     const { requestId } = req.params;
     const { status } = req.body;
@@ -194,74 +212,78 @@ export const updateStatus = async (req: AuthenticatedRequest, res: Response) => 
 
     await createAuditLog({
       userId: req.user?.id || 0,
-      actionType: 'update',
-      entityType: 'lab_request',
+      actionType: "update",
+      entityType: "lab_request",
       entityId: requestId,
       details: { status },
-      ipAddress: req.ip || 'unknown'
+      ipAddress: req.ip || "unknown",
     });
 
-    res.json({ message: 'Status updated successfully' });
+    res.json({ message: "Status updated successfully" });
   } catch (error) {
-    console.error('Error updating status:', error);
-    res.status(500).json({ message: 'Failed to update status' });
+    console.error("Error updating status:", error);
+    res.status(500).json({ message: "Failed to update status" });
   }
 };
 
-export const createRequest = async (req: AuthenticatedRequest, res: Response) => {
+export const createRequest = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     const { patientId, serviceId } = req.body;
-    
-    console.log('Received request body:', req.body);
+
+    console.log("Received request body:", req.body);
 
     // Add validation
     if (!patientId || !serviceId) {
-      return res.status(400).json({ 
-        message: 'Patient ID and Service ID are required',
+      return res.status(400).json({
+        message: "Patient ID and Service ID are required",
         received: req.body,
         missing: {
           patientId: !patientId,
-          serviceId: !serviceId
-        }
+          serviceId: !serviceId,
+        },
       });
     }
 
     // Validate that patient exists
-    const [patients] = await pool.execute(
-      'SELECT id FROM patients WHERE id = ?',
+    const [patients] = (await pool.execute(
+      "SELECT id FROM patients WHERE id = ?",
       [patientId]
-    ) as [RowDataPacket[], any];
+    )) as [RowDataPacket[], any];
 
     if (!patients.length) {
       return res.status(400).json({
-        message: 'Invalid patient ID',
-        patientId
+        message: "Invalid patient ID",
+        patientId,
       });
     }
 
     // Validate that service exists
-    const [services] = await pool.execute(
-      'SELECT id FROM services WHERE id = ?',
+    const [services] = (await pool.execute(
+      "SELECT id FROM services WHERE id = ?",
       [serviceId]
-    ) as [RowDataPacket[], any];
+    )) as [RowDataPacket[], any];
 
     if (!services.length) {
       return res.status(400).json({
-        message: 'Invalid service ID',
-        serviceId
+        message: "Invalid service ID",
+        serviceId,
       });
     }
 
     // Add user check
     if (!req.user?.id) {
-      console.log('No user ID found:', req.user); // Debug log
-      return res.status(401).json({ message: 'User not authenticated' });
+      console.log("No user ID found:", req.user); // Debug log
+      return res.status(401).json({ message: "User not authenticated" });
     }
 
-    console.log('Creating lab request with:', { // Debug log
+    console.log("Creating lab request with:", {
+      // Debug log
       patientId,
       serviceId,
-      userId: req.user.id
+      userId: req.user.id,
     });
 
     const [result] = await pool.execute(
@@ -277,37 +299,37 @@ export const createRequest = async (req: AuthenticatedRequest, res: Response) =>
 
     await createAuditLog({
       userId: req.user.id,
-      actionType: 'create',
-      entityType: 'lab_request',
+      actionType: "create",
+      entityType: "lab_request",
       entityId: (result as any).insertId,
       details: { patientId, serviceId },
-      ipAddress: req.ip || 'unknown'
+      ipAddress: req.ip || "unknown",
     });
 
-    res.status(201).json({ 
-      message: 'Lab request created successfully',
-      id: (result as any).insertId
+    res.status(201).json({
+      message: "Lab request created successfully",
+      id: (result as any).insertId,
     });
   } catch (error) {
-    console.error('Error creating lab request:', {
+    console.error("Error creating lab request:", {
       error,
       body: req.body,
-      user: req.user
+      user: req.user,
     });
-    
+
     // Type check the error before accessing message property
     if (error instanceof Error) {
-      res.status(500).json({ 
-        message: 'Failed to create lab request',
-        error: error.message
+      res.status(500).json({
+        message: "Failed to create lab request",
+        error: error.message,
       });
     } else {
-      res.status(500).json({ 
-        message: 'Failed to create lab request',
-        error: 'Unknown error occurred'
+      res.status(500).json({
+        message: "Failed to create lab request",
+        error: "Unknown error occurred",
       });
     }
   }
 };
 
-// ... I'll continue with the other controllers in the next message 
+// ... I'll continue with the other controllers in the next message

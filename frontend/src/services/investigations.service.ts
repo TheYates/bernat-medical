@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 
 export interface Investigation {
   id: string;
@@ -11,7 +11,7 @@ export interface Investigation {
   };
   result?: string;
   fileUrl?: string;
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled';
+  status: "Pending" | "In Progress" | "Completed" | "Cancelled";
   performedBy?: {
     fullName: string;
   };
@@ -31,22 +31,22 @@ export const investigationsService = {
     // If serviceId is an array, send multiple requests
     if (Array.isArray(data.serviceId)) {
       const results = await Promise.all(
-        data.serviceId.map(id => 
-          api.post('/lab-requests', {
+        data.serviceId.map((id) =>
+          api.post("/lab-requests", {
             patientId: data.patientId,
-            serviceId: id
+            serviceId: id,
           })
         )
       );
-      return results.map(r => r.data);
+      return results.map((r) => r.data);
     }
-    
+
     // Single request
-    const response = await api.post('/lab-requests', data);
+    const response = await api.post("/lab-requests", data);
     return response.data;
   },
 
   delete: async (requestId: string) => {
     await api.delete(`/lab-requests/${requestId}`);
-  }
-}; 
+  },
+};

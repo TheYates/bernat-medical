@@ -3,14 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,19 +49,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
-
-interface Drug {
-  id: string;
-  genericName: string;
-  brandName: string;
-  form: string;
-  strength: string;
-  posPrice: number;
-  prescriptionPrice: number;
-  salePricePerUnit: number; // Keep for backward compatibility
-  stock: number;
-  active: boolean;
-}
+import { Drug } from "@/types/drug";
 
 interface CartItem extends Drug {
   quantity: number;
@@ -83,7 +64,7 @@ const paymentMethods = [
 
 // Add a function to ensure price exists
 const getDrugPrice = (drug: Drug) => {
-  return drug.posPrice ?? drug.salePricePerUnit ?? 0;
+  return drug.pos_price;
 };
 
 export function POSTab() {
@@ -109,8 +90,7 @@ export function POSTab() {
   const filteredDrugs = useMemo(() => {
     return drugs.filter((drug) => {
       const searchLower = searchTerm.toLowerCase();
-      const nameMatches = drug.genericName?.toLowerCase().includes(searchLower);
-      return nameMatches;
+      return drug.name.toLowerCase().includes(searchLower);
     });
   }, [searchTerm, drugs]);
 
@@ -119,8 +99,15 @@ export function POSTab() {
       setIsLoadingDrugs(true);
       try {
         const response = await api.get("/drugs/active");
-        setDrugs(response.data);
+        const drugs = response.data.map((drug: any) => ({
+          ...drug,
+          pos_price: parseFloat(drug.pos_price) || 0,
+          min_stock: drug.min_stock,
+        }));
+        console.log("Fetched drugs:", drugs); // Debug log
+        setDrugs(drugs);
       } catch (error) {
+        console.error("Error loading drugs:", error);
         toast.error("Failed to load drugs");
       } finally {
         setIsLoadingDrugs(false);
@@ -146,7 +133,7 @@ export function POSTab() {
   const updateQuantity = (drugId: string, change: number) => {
     setCart((prev) =>
       prev.map((item) => {
-        if (item.id === drugId) {
+        if (item.id === Number(drugId)) {
           const newQuantity = item.quantity + change;
           if (newQuantity < 1) return item;
           if (newQuantity > item.stock) {
@@ -160,7 +147,7 @@ export function POSTab() {
     );
   };
 
-  const removeFromCart = (drugId: string) => {
+  const removeFromCart = (drugId: number) => {
     setCart((prev) => prev.filter((item) => item.id !== drugId));
   };
 
@@ -268,15 +255,26 @@ export function POSTab() {
                             className="flex justify-between items-center"
                           >
                             <div>
-                              <p>{drug.genericName}</p>
+                              <p>{drug.name}</p>
                               <p className="text-sm text-muted-foreground">
-                                {drug.strength} • {drug.form}
+                                {drug.strength}
+                                {drug.unit} • {formatCurrency(drug.pos_price)}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p>{formatCurrency(getDrugPrice(drug))}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Stock: {drug.stock}
+                              <p
+                                className={cn(
+                                  "text-sm",
+                                  drug.stock === 0 ? "text-destructive" : "",
+                                  drug.stock > 0 && drug.stock <= drug.min_stock
+                                    ? "text-yellow-500"
+                                    : "",
+                                  drug.stock > drug.min_stock
+                                    ? "text-green-500"
+                                    : ""
+                                )}
+                              >
+                                {drug.stock}
                               </p>
                             </div>
                           </CommandItem>
@@ -307,9 +305,9 @@ export function POSTab() {
                   <TableRow key={item.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{item.genericName}</p>
+                        <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.strength} {item.form}
+                          {item.strength} {item.unit}
                         </p>
                       </div>
                     </TableCell>
@@ -320,7 +318,7 @@ export function POSTab() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, -1)}
+                          onClick={() => updateQuantity(item.id.toString(), -1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -331,7 +329,7 @@ export function POSTab() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, 1)}
+                          onClick={() => updateQuantity(item.id.toString(), 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>

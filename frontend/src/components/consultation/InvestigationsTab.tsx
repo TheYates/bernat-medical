@@ -41,6 +41,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 interface Service {
   id: string;
@@ -70,6 +81,7 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
     Investigation[]
   >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // Fetch services and investigations when patient changes
   useEffect(() => {
@@ -119,15 +131,13 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
     setSelectedServices(selectedServices.filter((s) => s.id !== serviceId));
   };
 
-  const handleInvestigationRequest = async () => {
+  const submitInvestigationRequest = async () => {
     try {
-      // Add debug logging
       console.log("Sending investigation request:", {
         patientId: patient?.id,
         selectedInvestigations: selectedServices.map((s) => s.id),
       });
 
-      // If you're sending multiple investigations, handle them one by one
       for (const serviceId of selectedServices.map((s) => s.id)) {
         await investigationsService.create({
           patientId: patient?.id,
@@ -138,10 +148,15 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
       toast.success("Investigation request created");
       setSelectedServices([]);
       setOpen(false);
+      setShowConfirmDialog(false);
     } catch (error) {
       console.error("Investigation request error:", error);
       toast.error("Failed to create investigation request");
     }
+  };
+
+  const handleInvestigationRequest = () => {
+    setShowConfirmDialog(true);
   };
 
   const deleteInvestigation = async (investigationId: string) => {
@@ -692,6 +707,60 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Investigation Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-4">
+                <p>
+                  Are you sure you want to request the following investigations?
+                </p>
+
+                <div className="bg-muted p-4 rounded-lg space-y-2">
+                  {selectedServices.map((service) => (
+                    <div
+                      key={service.id}
+                      className="flex justify-between text-sm"
+                    >
+                      <span>{service.name}</span>
+                      <span className="font-medium">
+                        {formatCurrency(service.price)}
+                      </span>
+                    </div>
+                  ))}
+
+                  <Separator className="my-2" />
+
+                  <div className="flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>
+                      {formatCurrency(
+                        selectedServices.reduce(
+                          (sum, service) => sum + service.price,
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  This will create investigation requests that need to be
+                  processed by the laboratory department.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={submitInvestigationRequest}>
+              Confirm Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

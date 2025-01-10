@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 
 export interface Drug {
   id: string;
+  name: string;
   genericName: string;
   brandName?: string;
   strength: string;
@@ -11,6 +12,9 @@ export interface Drug {
   salePricePerUnit: number;
   active: boolean;
   unit: string;
+  prescription_price: number;
+  stock: number;
+  min_stock: number;
 }
 
 export interface PrescriptionItem {
@@ -22,8 +26,10 @@ export interface PrescriptionItem {
   frequency: string;
   duration: string;
   route: string;
+  stock: number;
   quantity: number;
-  salePricePerUnit: number;
+  prescription_price: number;
+  min_stock: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -108,9 +108,10 @@ export function BillingPage() {
   }, []);
 
   const onClinicIdChange = async (value: string) => {
+    // Update the input value immediately
     setClinicId(value);
 
-    if (!value || value.length < 3) {
+    if (!value || value.length < 7) {
       setPatient(null);
       setItems([]);
       setHistoryItems([]);
@@ -120,38 +121,41 @@ export function BillingPage() {
     }
 
     try {
+      // First get the patient details
       const patientResponse = await api.get(`/patients/${value}`);
-      const patientData = patientResponse.data;
+      setPatient(patientResponse.data);
 
-      if (!patientData || !patientData.id) {
-        setPatient(null);
-        setItems([]);
-        setHistoryItems([]);
-        setTotalPages(1);
-        setPage(1);
-        return;
+      // Only fetch billing data if we have a patient
+      if (patientResponse.data.id) {
+        try {
+          const [pendingResponse, historyResponse] = await Promise.all([
+            api.get(`/billing/pending/${patientResponse.data.id}`),
+            api.get(`/billing/history/${patientResponse.data.id}`, {
+              params: { page: 1 },
+            }),
+          ]);
+          setItems(pendingResponse.data);
+          setHistoryItems(historyResponse.data.items);
+          setTotalPages(historyResponse.data.meta.totalPages);
+          setPage(1);
+        } catch (historyError) {
+          console.error("Error fetching billing data:", historyError);
+          setItems([]);
+          setHistoryItems([]);
+          setTotalPages(1);
+          setPage(1);
+        }
       }
-
-      setPatient(patientData);
-
-      const [pendingResponse, historyResponse] = await Promise.all([
-        api.get(`/billing/pending/${patientData.id}`),
-        api.get(`/billing/history/${patientData.id}`, {
-          params: { page: 1 },
-        }),
-      ]);
-
-      setItems(pendingResponse.data);
-      setHistoryItems(historyResponse.data.items);
-      setTotalPages(historyResponse.data.meta.totalPages);
-      setPage(1);
     } catch (error) {
-      toast.error("Failed to fetch patient details");
       setPatient(null);
       setItems([]);
       setHistoryItems([]);
       setTotalPages(1);
       setPage(1);
+      console.error("Error fetching patient:", error);
+      if (value.length >= 7) {
+        toast.error("Patient not found");
+      }
     }
   };
 

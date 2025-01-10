@@ -99,17 +99,36 @@ export function LaboratoryPage() {
   });
 
   const onClinicIdChange = async (value: string) => {
-    if (!value || value.length < 3) {
+    if (!value || value.length < 7) {
       setPatient(null);
+      setPatientInvestigations([]);
       return;
     }
 
     try {
-      const response = await api.get(`/patients/${value}`);
-      setPatient(response.data);
-      fetchPatientInvestigations(response.data.id);
+      // First get the patient details
+      const patientResponse = await api.get(`/patients/${value}`);
+      setPatient(patientResponse.data);
+
+      // Only fetch investigations if we have a patient
+      if (patientResponse.data.id) {
+        try {
+          const historyResponse = await api.get(
+            `/lab-requests/${patientResponse.data.id}/history`
+          );
+          setPatientInvestigations(historyResponse.data);
+        } catch (historyError) {
+          console.error("Error fetching investigations:", historyError);
+          setPatientInvestigations([]);
+        }
+      }
     } catch (error) {
-      toast.error("Failed to fetch patient details");
+      setPatient(null);
+      setPatientInvestigations([]);
+      console.error("Error fetching patient:", error);
+      if (value.length >= 7) {
+        toast.error("Patient not found");
+      }
     }
   };
 

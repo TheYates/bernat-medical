@@ -7,13 +7,14 @@ export const getDrugs = async (req: Request, res: Response) => {
     const query = `
       SELECT 
         id,
-        name as genericName,
-        unit as form,
+        name,
+        unit,
         strength,
-        COALESCE(pos_price, purchase_price) as posPrice,
+        COALESCE(pos_price, purchase_price) as pos_price,
         prescription_price,
-        purchase_price as salePricePerUnit,
+        purchase_price,
         stock,
+        min_stock,
         active
       FROM drugs
       WHERE active = 1
@@ -27,17 +28,17 @@ export const getDrugs = async (req: Request, res: Response) => {
       return res.json([]);
     }
 
-    // Transform to match frontend interface
+    // Transform to match database column names
     const transformedDrugs = drugs.map((drug: any) => ({
       id: drug.id,
-      genericName: drug.genericName,
-      brandName: null,
-      form: drug.form,
+      name: drug.name,
+      unit: drug.unit,
       strength: drug.strength,
-      posPrice: drug.posPrice,
-      prescriptionPrice: drug.prescription_price,
-      salePricePerUnit: drug.salePricePerUnit,
+      pos_price: drug.pos_price,
+      prescription_price: drug.prescription_price,
+      purchase_price: drug.purchase_price,
       stock: drug.stock,
+      min_stock: drug.min_stock,
       active: Boolean(drug.active),
     }));
 
@@ -59,20 +60,20 @@ export const searchDrugs = async (req: Request, res: Response) => {
     const query = `
       SELECT 
         id,
-        generic_name,
-        brand_name,
-        form,
+        name,
+        unit,
         strength,
-        COALESCE(pos_price, sale_price_per_unit) as posPrice,
+        COALESCE(pos_price, purchase_price) as pos_price,
         prescription_price,
-        sale_price_per_unit as salePricePerUnit,
+        purchase_price,
         stock,
+        min_stock,
         active
       FROM drugs
       WHERE 
         active = 1 
-        AND generic_name LIKE ?
-      ORDER BY generic_name ASC
+        AND name LIKE ?
+      ORDER BY name ASC
       LIMIT 50
     `;
 
@@ -82,17 +83,16 @@ export const searchDrugs = async (req: Request, res: Response) => {
       any
     ];
 
-    // Transform the data to match the frontend interface
     const transformedDrugs = drugs.map((drug: any) => ({
       id: drug.id,
-      genericName: drug.generic_name,
-      brandName: drug.brand_name,
-      form: drug.form,
+      name: drug.name,
+      unit: drug.unit,
       strength: drug.strength,
-      posPrice: drug.posPrice,
-      prescriptionPrice: drug.prescription_price,
-      salePricePerUnit: drug.salePricePerUnit,
+      pos_price: drug.pos_price,
+      prescription_price: drug.prescription_price,
+      purchase_price: drug.purchase_price,
       stock: drug.stock,
+      min_stock: drug.min_stock,
       active: Boolean(drug.active),
     }));
 
@@ -108,13 +108,14 @@ export const getActiveDrugs = async (req: Request, res: Response) => {
     const query = `
       SELECT 
         id,
-        name as genericName,
-        unit as form,
+        name,
+        unit,
         strength,
-        COALESCE(pos_price, purchase_price) as posPrice,
+        COALESCE(pos_price, purchase_price) as pos_price,
         prescription_price,
-        purchase_price as salePricePerUnit,
+        purchase_price,
         stock,
+        min_stock,
         active
       FROM drugs
       WHERE active = 1 
@@ -124,17 +125,16 @@ export const getActiveDrugs = async (req: Request, res: Response) => {
 
     const [drugs] = (await pool.execute(query)) as [RowDataPacket[], any];
 
-    // Transform to match frontend interface
     const transformedDrugs = drugs.map((drug: any) => ({
       id: drug.id,
-      genericName: drug.genericName,
-      brandName: null,
-      form: drug.form,
+      name: drug.name,
+      unit: drug.unit,
       strength: drug.strength,
-      posPrice: drug.posPrice,
-      prescriptionPrice: drug.prescription_price,
-      salePricePerUnit: drug.salePricePerUnit,
+      pos_price: drug.pos_price,
+      prescription_price: drug.prescription_price,
+      purchase_price: drug.purchase_price,
       stock: drug.stock,
+      min_stock: drug.min_stock,
       active: Boolean(drug.active),
     }));
 

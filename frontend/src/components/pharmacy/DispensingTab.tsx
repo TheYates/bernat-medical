@@ -68,6 +68,50 @@ const paymentMethods = [
   { id: "insurance", label: "Insurance" },
 ];
 
+const formatDate = (date: string) => {
+  if (!date) return "-";
+
+  const d = new Date(date);
+
+  // Function to add ordinal suffix
+  const getOrdinalSuffix = (day: number) => {
+    if (day > 3 && day < 21) return "th";
+    switch (day % 10) {
+      case 1:
+        return "st";
+      case 2:
+        return "nd";
+      case 3:
+        return "rd";
+      default:
+        return "th";
+    }
+  };
+
+  const day = d.getDate();
+  const suffix = getOrdinalSuffix(day);
+
+  return (
+    <>
+      {`${day}${suffix} ${d
+        .toLocaleString("en-GB", {
+          month: "short",
+          year: "numeric",
+        })
+        .toUpperCase()}`}
+      <div className="text-xs text-muted-foreground">
+        {d
+          .toLocaleString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })
+          .toUpperCase()}
+      </div>
+    </>
+  );
+};
+
 export function DispensingTab() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -108,13 +152,35 @@ export function DispensingTab() {
     }
 
     try {
-      const response = await api.get(`/patients/${value}`);
-      setPatient(response.data);
+      // First get the patient details
+      const patientResponse = await api.get(`/patients/${value}`);
+      setPatient(patientResponse.data);
+
+      // Only fetch prescriptions if we have a patient
+      if (patientResponse.data.id) {
+        try {
+          const [pendingResponse, historyResponse] = await Promise.all([
+            api.get(
+              `/pharmacy/prescriptions/pending/${patientResponse.data.id}`
+            ),
+            api.get(
+              `/pharmacy/prescriptions/history/${patientResponse.data.id}`
+            ),
+          ]);
+          setPrescriptions(pendingResponse.data);
+          setPrescriptionHistory(historyResponse.data);
+        } catch (historyError) {
+          console.error("Error fetching prescriptions:", historyError);
+          setPrescriptions([]);
+          setPrescriptionHistory([]);
+        }
+      }
     } catch (error) {
+      setPatient(null);
+      setPrescriptions([]);
+      setPrescriptionHistory([]);
+      console.error("Error fetching patient:", error);
       if (value.length >= 7) {
-        setPatient(null);
-        setPrescriptions([]);
-        setPrescriptionHistory([]);
         toast.error("Patient not found");
       }
     }
@@ -140,8 +206,7 @@ export function DispensingTab() {
       const response = await api.get(
         `/pharmacy/prescriptions/history/${patient.id}`
       );
-      console.log("Raw prescription history:", response.data);
-      console.log("Payment methods:", response.data[0]?.payment_methods);
+      console.log("Prescription history response:", response.data);
       setPrescriptionHistory(response.data);
     } catch (error) {
       toast.error("Failed to fetch prescription history");
@@ -229,15 +294,6 @@ export function DispensingTab() {
   useEffect(() => {
     fetchWaitingList();
   }, []);
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "-";
-    try {
-      return format(parseISO(dateString), "dd/MM/yyyy hh:mm a");
-    } catch (error) {
-      return "-";
-    }
-  };
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -352,119 +408,110 @@ export function DispensingTab() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {isLoadingHistory ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center h-24">
-                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                          </TableCell>
-                        </TableRow>
-                      ) : prescriptionHistory.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={6}
-                            className="text-center h-12 text-muted-foreground"
-                          >
-                            No prescription history found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        prescriptionHistory.map((prescription) => (
+                      {prescriptionHistory.map((prescription) => {
+                        // Deduplicate prescriptions array
+                        const uniquePrescriptions =
+                          prescription.prescriptions?.reduce(
+                            (acc: any[], curr: any) => {
+                              if (!acc.find((p) => p.id === curr.id)) {
+                                acc.push(curr);
+                              }
+                              return acc;
+                            },
+                            []
+                          ) || [];
+
+                        return (
                           <TableRow key={prescription.session_id}>
                             <TableCell>
                               {formatDate(prescription.created_at)}
                             </TableCell>
                             <TableCell>
                               <div className="space-y-2">
-                                {(prescription.prescriptions || []).map(
-                                  (drug: any, index: number) => (
-                                    <div
-                                      key={`${prescription.session_id}-${drug.id}-name-${index}`}
-                                    >
-                                      <p className="font-medium">
-                                        {drug.drug.genericName}
-                                      </p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {drug.drug.strength} {drug.drug.form}
-                                      </p>
-                                    </div>
-                                  )
-                                )}
+                                {uniquePrescriptions.map((drug: any) => (
+                                  <div key={drug.id}>
+                                    <p className="font-medium">
+                                      {drug.drug.genericName}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {drug.drug.strength} {drug.drug.form}
+                                    </p>
+                                  </div>
+                                ))}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col space-y-2">
-                                {(prescription.prescriptions || []).map(
-                                  (drug: any, index: number) => (
-                                    <DropdownMenu
-                                      key={`${prescription.session_id}-${drug.id}-details-${index}`}
-                                    >
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 px-2 w-fit"
-                                        >
-                                          Details
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent
-                                        align="start"
-                                        className="w-72"
+                                {uniquePrescriptions.map((drug: any) => (
+                                  <DropdownMenu
+                                    key={`${prescription.session_id}-${drug.id}-details`}
+                                  >
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 w-fit"
                                       >
-                                        <DropdownMenuLabel>
-                                          Prescription Details
-                                        </DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <div className="p-2 space-y-2">
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-medium">
-                                                Dosage
-                                              </p>
-                                              <p className="text-sm text-muted-foreground">
-                                                {drug.dosage}
-                                              </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-medium">
-                                                Frequency
-                                              </p>
-                                              <p className="text-sm text-muted-foreground">
-                                                {drug.frequency}
-                                              </p>
-                                            </div>
-                                          </div>
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-medium">
-                                                Duration
-                                              </p>
-                                              <p className="text-sm text-muted-foreground">
-                                                {drug.duration}
-                                              </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-medium">
-                                                Route
-                                              </p>
-                                              <p className="text-sm text-muted-foreground">
-                                                {drug.route || "-"}
-                                              </p>
-                                            </div>
+                                        Details
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                      align="start"
+                                      className="w-72"
+                                    >
+                                      <DropdownMenuLabel>
+                                        Prescription Details
+                                      </DropdownMenuLabel>
+                                      <DropdownMenuSeparator />
+                                      <div className="p-2 space-y-2">
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                              Dosage
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {drug.dosage}
+                                            </p>
                                           </div>
                                           <div className="space-y-1">
                                             <p className="text-sm font-medium">
-                                              Quantity
+                                              Frequency
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                              {drug.quantity}
+                                              {drug.frequency}
                                             </p>
                                           </div>
                                         </div>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  )
-                                )}
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                              Duration
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {drug.duration}
+                                            </p>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                              Route
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                              {drug.route || "-"}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <p className="text-sm font-medium">
+                                            Quantity
+                                          </p>
+                                          <p className="text-sm text-muted-foreground">
+                                            {drug.quantity}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ))}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -510,8 +557,8 @@ export function DispensingTab() {
                               {prescription.dispensed_by || "-"}
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </>

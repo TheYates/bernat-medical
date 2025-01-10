@@ -168,11 +168,11 @@ export function PrescriptionsTab({
 
   // Instead of using state for filtered drugs, compute them directly
   const filteredDrugs = useMemo(() => {
-    return drugs.filter((drug) => {
-      const searchLower = searchTerm.toLowerCase();
-      const nameMatches = drug.genericName?.toLowerCase().includes(searchLower);
-      return drug.active && nameMatches;
-    });
+    if (!searchTerm) return drugs; // Show all drugs if no search term
+    const searchLower = searchTerm.toLowerCase();
+    return drugs.filter((drug) =>
+      drug.name.toLowerCase().includes(searchLower)
+    );
   }, [searchTerm, drugs]);
 
   const handleSave = async (e: React.MouseEvent) => {
@@ -262,8 +262,10 @@ export function PrescriptionsTab({
       frequency: "Once daily",
       duration: "1 days",
       route: "Oral",
+      stock: drug.stock,
+      min_stock: drug.min_stock,
       quantity: 0,
-      salePricePerUnit: Number(drug.salePricePerUnit),
+      prescription_price: Number(drug.prescription_price),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -338,7 +340,10 @@ export function PrescriptionsTab({
       setIsLoadingDrugs(true);
       try {
         const response = await prescriptionsService.getDrugs();
+        console.log("Fetched drugs:", response); // Debug log
         setDrugs(response);
+      } catch (error) {
+        console.error("Error fetching drugs:", error);
       } finally {
         setIsLoadingDrugs(false);
       }
@@ -539,27 +544,29 @@ export function PrescriptionsTab({
                               )}
                             />
                             <div className="flex-1">
-                              <div className="font-medium">
-                                {drug.genericName}
-                              </div>
+                              <div className="font-medium">{drug.name}</div>
                               <div className="text-sm text-muted-foreground">
                                 {drug.strength}
                                 {drug.unit} •{" "}
-                                {formatCurrency(drug.salePricePerUnit)}
+                                {formatCurrency(drug.prescription_price)}
                               </div>
                             </div>
-                            <span
-                              className={cn(
-                                "ml-2",
-                                drug.saleQuantity === 0 && "text-destructive",
-                                drug.saleQuantity <= drug.minimumStock &&
-                                  "text-yellow-500",
-                                drug.saleQuantity > drug.minimumStock &&
-                                  "text-green-500"
-                              )}
-                            >
-                              {drug.saleQuantity}
-                            </span>
+                            <div className="text-right">
+                              <p
+                                className={cn(
+                                  "text-sm",
+                                  drug.stock === 0 ? "text-destructive" : "",
+                                  drug.stock > 0 && drug.stock <= drug.min_stock
+                                    ? "text-yellow-500"
+                                    : "",
+                                  drug.stock > drug.min_stock
+                                    ? "text-green-500"
+                                    : ""
+                                )}
+                              >
+                                {drug.stock}
+                              </p>
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -593,30 +600,30 @@ export function PrescriptionsTab({
                         <TableRow key={drug.id}>
                           <TableCell>
                             <div>
-                              <p className="font-medium">
-                                {drug.drug.genericName}
-                              </p>
+                              <p className="font-medium">{drug.drug.name}</p>
                               <p className="text-sm text-muted-foreground">
-                                {drug.drug.strength}
-                                {drug.drug.unit} •{" "}
-                                {formatCurrency(drug.drug.salePricePerUnit)}
+                                {drug.drug.strength} {drug.drug.unit} •{" "}
+                                {formatCurrency(drug.drug.prescription_price)}
                               </p>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <p
-                              className={cn(
-                                "text-sm",
-                                drug.drug.saleQuantity === 0 &&
-                                  "text-destructive",
-                                drug.drug.saleQuantity <=
-                                  drug.drug.minimumStock && "text-yellow-500",
-                                drug.drug.saleQuantity >
-                                  drug.drug.minimumStock && "text-green-500"
-                              )}
-                            >
-                              {drug.drug.saleQuantity}
-                            </p>
+                            <div className="text-right">
+                              <p
+                                className={cn(
+                                  "text-sm",
+                                  drug.stock === 0 ? "text-destructive" : "",
+                                  drug.stock > 0 && drug.stock <= drug.min_stock
+                                    ? "text-yellow-500"
+                                    : "",
+                                  drug.stock > drug.min_stock
+                                    ? "text-green-500"
+                                    : ""
+                                )}
+                              >
+                                {drug.stock}
+                              </p>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Input
@@ -768,7 +775,8 @@ export function PrescriptionsTab({
                             {formatCurrency(
                               selectedDrugs.reduce((total, drug) => {
                                 return (
-                                  total + drug.salePricePerUnit * drug.quantity
+                                  total +
+                                  drug.prescription_price * drug.quantity
                                 );
                               }, 0)
                             )}

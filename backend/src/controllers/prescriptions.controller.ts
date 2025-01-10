@@ -27,38 +27,75 @@ export const getPrescriptionHistory = async (
   res: Response
 ) => {
   try {
+    // First, get prescriptions with drug info
     const [prescriptions] = await pool.execute<RowDataPacket[]>(
       `SELECT 
-        p.id,
-        p.created_at as createdAt,
-        p.dosage,
-        p.frequency,
-        p.duration,
-        p.route,
-        p.quantity,
-        p.dispensed,
+        p.id, 
+        p.created_at,
+        p.dosage, 
+        p.frequency, 
+        p.duration, 
+        p.route, 
+        p.quantity, 
+        p.dispensed, 
         JSON_OBJECT(
           'id', d.id,
-          'genericName', d.name,
+          'name', d.name,
           'strength', d.strength,
-          'salePricePerUnit', d.prescription_price
-        ) as drug,
-        u.full_name as prescribedByName
+          'prescription_price', d.prescription_price
+        ) AS drug,
+        u.full_name AS prescribed_by_name
       FROM prescriptions p
       JOIN drugs d ON p.drug_id = d.id
       JOIN users u ON p.created_by = u.id
-      WHERE p.patient_id = ?
+      WHERE p.patient_id = ? AND p.session_id = ?
       ORDER BY p.created_at DESC`,
-      [req.params.patientId]
+      [req.params.patientId, req.params.sessionId]
     );
 
-    // Transform the data to ensure valid dates
-    const formattedPrescriptions = prescriptions.map((p) => ({
-      ...p,
-      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null,
-    }));
+    // Then, get payments separately and merge them
+    const prescriptionIds = prescriptions.map((p) => p.id);
 
-    res.json(formattedPrescriptions);
+    if (prescriptionIds.length > 0) {
+      const [payments] = await pool.execute<RowDataPacket[]>(
+        `SELECT 
+          prescription_id,
+          JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'method', method,
+              'amount', amount
+            )
+          ) as payment_methods
+        FROM prescription_payments
+        WHERE prescription_id IN (?)
+        GROUP BY prescription_id`,
+        [prescriptionIds]
+      );
+
+      // Create a map of payments by prescription_id
+      const paymentMap = new Map(
+        payments.map((p) => [
+          p.prescription_id,
+          typeof p.payment_methods === "string"
+            ? JSON.parse(p.payment_methods)
+            : p.payment_methods,
+        ])
+      );
+
+      // Merge payments with prescriptions
+      prescriptions.forEach((prescription) => {
+        if (typeof prescription.drug === "string") {
+          prescription.drug = JSON.parse(prescription.drug);
+        }
+        prescription.payments = paymentMap.get(prescription.id) || [];
+        prescription.created_at = new Date(
+          prescription.created_at
+        ).toISOString();
+      });
+    }
+
+    console.log("Prescriptions count:", prescriptions.length);
+    res.json(prescriptions);
   } catch (error) {
     console.error("Error fetching prescription history:", error);
     res.status(500).json({ message: "Failed to fetch history" });

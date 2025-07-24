@@ -274,7 +274,7 @@ export function VitalSigns() {
     }
   };
 
-  // Waiting list effect
+  // Fetch waiting list on component mount
   useEffect(() => {
     const fetchWaitingList = async () => {
       setIsLoadingWaitingList(true);
@@ -289,10 +289,8 @@ export function VitalSigns() {
       }
     };
 
-    if (showWaitingList) {
-      fetchWaitingList();
-    }
-  }, [showWaitingList]);
+    fetchWaitingList();
+  }, []);
 
   const vitalSignsColumns = [
     {
@@ -368,9 +366,7 @@ export function VitalSigns() {
                             onChange={(e) => {
                               const value = e.target.value.toUpperCase();
                               field.onChange(value);
-                              if (value.length >= 7) {
-                                onClinicIdChange(value);
-                              }
+                              onClinicIdChange(value);
                             }}
                           />
                         </FormControl>
@@ -490,7 +486,7 @@ export function VitalSigns() {
                             type="button"
                             onClick={() => setShowHistory(true)}
                           >
-                            View History
+                            View History →
                             {vitalSignsHistory.length > 0 && (
                               <Badge variant="secondary" className="ml-2">
                                 {vitalSignsHistory.length}

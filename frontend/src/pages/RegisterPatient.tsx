@@ -52,11 +52,23 @@ const formSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.string().min(1, "Gender is required"),
-  contact: z.string().min(1, "Contact number is required"),
+  contact: z
+    .string()
+    .min(1, "Contact number is required")
+    .refine(
+      (value) => /^\d{10}$/.test(value.replace(/\s/g, "")),
+      "Contact number must be exactly 10 digits"
+    ),
   maritalStatus: z.string().optional(),
   residence: z.string().optional(),
   emergencyContactName: z.string().optional(),
-  emergencyContactNumber: z.string().optional(),
+  emergencyContactNumber: z
+    .string()
+    .optional()
+    .refine(
+      (value) => !value || /^\d{10}$/.test(value.replace(/\s/g, "")),
+      "Contact number must be exactly 10 digits"
+    ),
   emergencyContactRelation: z.string().optional(),
 });
 
@@ -142,12 +154,32 @@ export function RegisterPatient() {
   const handleServicePromptResponse = (requestServices: boolean) => {
     setShowServicePrompt(false);
     if (requestServices) {
-      // Navigate to services page
-      navigate("/dashboard/services");
+      // Navigate to service request page with clinicId
+      navigate(
+        `/dashboard/service-request?clinicId=${form.getValues("clinicId")}`
+      );
     } else {
-      // Navigate back to patients list
       navigate("/dashboard/patients");
     }
+  };
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, "");
+
+    // Take only the first 10 digits
+    const truncated = digits.slice(0, 10);
+
+    // Format as XXX XXX XXXX
+    if (truncated.length >= 7) {
+      return `${truncated.slice(0, 3)} ${truncated.slice(
+        3,
+        6
+      )} ${truncated.slice(6)}`;
+    } else if (truncated.length >= 3) {
+      return `${truncated.slice(0, 3)} ${truncated.slice(3)}`;
+    }
+    return truncated;
   };
 
   return (
@@ -313,7 +345,18 @@ export function RegisterPatient() {
                           Contact Number*
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} className="h-10 text-sm" />
+                          <Input
+                            {...field}
+                            className="h-10 text-sm"
+                            value={formatPhoneNumber(field.value)}
+                            onChange={(e) => {
+                              const formatted = formatPhoneNumber(
+                                e.target.value
+                              );
+                              field.onChange(formatted);
+                            }}
+                            placeholder="02X XXX XXXX"
+                          />
                         </FormControl>
                         <FormMessage className="text-sm" />
                       </FormItem>
@@ -394,7 +437,22 @@ export function RegisterPatient() {
                             Contact Number
                           </FormLabel>
                           <FormControl>
-                            <Input {...field} className="h-10 text-sm" />
+                            <Input
+                              {...field}
+                              className="h-10 text-sm"
+                              value={
+                                field.value
+                                  ? formatPhoneNumber(field.value)
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const formatted = formatPhoneNumber(
+                                  e.target.value
+                                );
+                                field.onChange(formatted);
+                              }}
+                              placeholder="02X XXX XXXX"
+                            />
                           </FormControl>
                           <FormMessage className="text-sm" />
                         </FormItem>

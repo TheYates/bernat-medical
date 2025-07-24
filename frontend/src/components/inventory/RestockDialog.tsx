@@ -1,22 +1,54 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useForm } from "react-hook-form";
 
 interface RestockFormData {
   drugId: number;
   vendorId: number;
-  purchaseUnit: 'purchase' | 'sale'; // Whether buying in purchase or sale units
+  purchaseUnit: "purchase" | "sale"; // Whether buying in purchase or sale units
   quantity: number;
   batchNumber: string;
   expiryDate: string;
   notes?: string;
+}
+
+interface RestockItem {
+  drugId: number;
+  drugName: string;
+  vendorId: number;
+  vendorName: string;
+  purchaseUnit: "purchase" | "sale";
+  quantity: number;
+  batchNumber: string;
+  expiryDate: string;
+  purchaseForm: string;
+  saleForm: string;
+  purchaseQuantity: number;
+  saleQuantity: number;
 }
 
 interface RestockDialogProps {
@@ -43,38 +75,44 @@ interface Vendor {
 }
 
 export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
-  const [selectedUnit, setSelectedUnit] = useState<'purchase' | 'sale'>('purchase');
-  
+  const [selectedUnit, setSelectedUnit] = useState<"purchase" | "sale">(
+    "purchase"
+  );
+
   const { data: drugs } = useQuery({
-    queryKey: ['drugs'],
+    queryKey: ["drugs"],
     queryFn: async () => {
-      const response = await api.get('/inventory/drugs');
+      const response = await api.get("/inventory/drugs");
       return response.data;
-    }
+    },
   });
 
   const { data: vendors } = useQuery({
-    queryKey: ['vendors'],
+    queryKey: ["vendors"],
     queryFn: async () => {
-      const response = await api.get('/inventory/vendors');
+      const response = await api.get("/inventory/vendors");
       return response.data;
-    }
+    },
   });
 
   const form = useForm<RestockFormData>();
 
-  const selectedDrug = drugs?.find((d: Drug) => d.id === form.watch('drugId'));
+  const selectedDrug = drugs?.find((d: Drug) => d.id === form.watch("drugId"));
 
   const handleSubmit = async (data: RestockFormData) => {
-    const selectedDrug = drugs?.find(d => d.id === data.drugId);
-    const selectedVendor = vendors?.find(v => v.id === data.vendorId);
+    const selectedDrug = drugs?.find((d: Drug) => d.id === data.drugId);
+    const selectedVendor = vendors?.find((v: Vendor) => v.id === data.vendorId);
 
     if (!selectedDrug || !selectedVendor) return;
 
-    const purchaseQuantity = selectedUnit === 'purchase' ? data.quantity : 
-      Math.ceil(data.quantity / (selectedDrug.unitsPerPurchase || 1));
-    const saleQuantity = selectedUnit === 'sale' ? data.quantity :
-      data.quantity * (selectedDrug.unitsPerPurchase || 1);
+    const purchaseQuantity =
+      selectedUnit === "purchase"
+        ? data.quantity
+        : Math.ceil(data.quantity / (selectedDrug.unitsPerPurchase || 1));
+    const saleQuantity =
+      selectedUnit === "sale"
+        ? data.quantity
+        : data.quantity * (selectedDrug.unitsPerPurchase || 1);
 
     onSubmit({
       drugId: data.drugId,
@@ -100,7 +138,10 @@ export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-4"
+          >
             {/* Drug Selection */}
             <FormField
               control={form.control}
@@ -109,10 +150,12 @@ export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
                 <FormItem>
                   <FormLabel>Drug</FormLabel>
                   <Combobox
-                    options={drugs?.map((drug: Drug) => ({
-                      label: drug.name,
-                      value: drug.id
-                    })) || []}
+                    options={
+                      drugs?.map((drug: Drug) => ({
+                        label: drug.name,
+                        value: drug.id,
+                      })) || []
+                    }
                     {...field}
                   />
                 </FormItem>
@@ -126,13 +169,19 @@ export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Vendor</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value?.toString()}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
                       {vendors?.map((vendor: Vendor) => (
-                        <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                        <SelectItem
+                          key={vendor.id}
+                          value={vendor.id.toString()}
+                        >
                           {vendor.name}
                         </SelectItem>
                       ))}
@@ -149,11 +198,11 @@ export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Purchase In</FormLabel>
-                  <Select 
-                    onValueChange={(value: 'purchase' | 'sale') => {
+                  <Select
+                    onValueChange={(value: "purchase" | "sale") => {
                       setSelectedUnit(value);
                       field.onChange(value);
-                    }} 
+                    }}
                     value={field.value}
                   >
                     <SelectTrigger>
@@ -226,9 +275,9 @@ export function RestockDialog({ open, onClose, onSubmit }: RestockDialogProps) {
             />
 
             <Button type="submit">Submit</Button>
-        </form>
+          </form>
         </Form>
       </DialogContent>
     </Dialog>
   );
-} 
+}

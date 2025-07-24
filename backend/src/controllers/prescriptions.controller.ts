@@ -48,9 +48,9 @@ export const getPrescriptionHistory = async (
       FROM prescriptions p
       JOIN drugs d ON p.drug_id = d.id
       JOIN users u ON p.created_by = u.id
-      WHERE p.patient_id = ? AND p.session_id = ?
+      WHERE p.patient_id = ?
       ORDER BY p.created_at DESC`,
-      [req.params.patientId, req.params.sessionId]
+      [req.params.patientId]
     );
 
     // Then, get payments separately and merge them

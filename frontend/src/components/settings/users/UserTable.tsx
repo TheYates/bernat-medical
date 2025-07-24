@@ -5,10 +5,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { UserActions } from './UserActions';
-import type { User } from '@/types/user';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { UserActions } from "../users/UserActions";
+import type { User } from "@/types/user";
 
 interface UserTableProps {
   users: User[];
@@ -38,7 +38,10 @@ export function UserTable({ users, isLoading, onUserUpdated }: UserTableProps) {
             <TableCell className="font-medium">{user.fullName}</TableCell>
             <TableCell>{user.username}</TableCell>
             <TableCell>
-              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">
+              <Badge
+                variant={user.role === "admin" ? "default" : "secondary"}
+                className="capitalize"
+              >
                 {user.role}
               </Badge>
             </TableCell>
@@ -57,4 +60,4 @@ export function UserTable({ users, isLoading, onUserUpdated }: UserTableProps) {
       </TableBody>
     </Table>
   );
-} 
+}

@@ -77,6 +77,8 @@ import {
 import { PatientIdCard } from "@/components/PatientIdCard";
 import { PatientDetails } from "@/components/shared/patient-details";
 import { Patient } from "@/types/patient";
+import { useSearchParams } from "react-router-dom";
+import PatientSearch from "@/components/PatientSearch";
 
 interface Service {
   id: number;
@@ -114,6 +116,8 @@ const formSchema = z.object({
 });
 
 export function ServiceRequest() {
+  const [searchParams] = useSearchParams();
+
   // States
   const [patient, setPatient] = useState<Patient | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -139,6 +143,7 @@ export function ServiceRequest() {
   const [showHistory, setShowHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [requestHistory, setRequestHistory] = useState<ServiceRequest[]>([]);
+  const [showPatientSearchDialog, setShowPatientSearchDialog] = useState(false);
 
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
@@ -155,7 +160,7 @@ export function ServiceRequest() {
         const response = await api.get("/services");
         setServices(response.data);
       } catch (error) {
-        console.error("Error fetching services:", error);
+        // console.error("Error fetching services:", error);
         toast.error("Failed to load services");
       }
     };
@@ -199,7 +204,7 @@ export function ServiceRequest() {
     try {
       return format(new Date(dateString), "dd MMM yyyy");
     } catch (error) {
-      console.error("Error formatting date:", dateString, error);
+      // console.error("Error formatting date:", dateString, error);
       return "-";
     }
   };
@@ -239,7 +244,7 @@ export function ServiceRequest() {
       setRequests([]);
       setSelectedServices([]);
       setRequestHistory([]);
-      console.error("Error fetching patient:", error);
+      // console.error("Error fetching patient:", error);
       if (value.length >= 6) {
         toast.error("Patient not found");
       }
@@ -268,7 +273,7 @@ export function ServiceRequest() {
       setSelectedServices([]);
       setShowCreateDialog(false);
     } catch (error) {
-      console.error("Error creating service request:", error);
+      // console.error("Error creating service request:", error);
       toast.error("Failed to create service request");
     }
   };
@@ -291,26 +296,6 @@ export function ServiceRequest() {
     } catch (error) {
       console.error("Error cancelling request:", error);
       toast.error("Failed to cancel request");
-    }
-  };
-
-  const handleAdvancedSearch = async () => {
-    try {
-      const response = await api.get("/patients/search", {
-        params: {
-          ...searchForm,
-          // Only include non-empty/non-'any' values
-          ...Object.fromEntries(
-            Object.entries(searchForm).filter(
-              ([_, value]) => value !== "" && value !== "any"
-            )
-          ),
-        },
-      });
-      setSearchResults(response.data);
-    } catch (error) {
-      console.error("Error searching patients:", error);
-      toast.error("Failed to search patients");
     }
   };
 
@@ -448,6 +433,48 @@ export function ServiceRequest() {
     }
   };
 
+  // Add this useEffect to set clinic ID from URL
+  useEffect(() => {
+    const clinicId = searchParams.get("clinicId");
+    if (clinicId) {
+      form.setValue("clinicId", clinicId);
+      // Optionally trigger the clinic ID search
+      debouncedClinicIdSearch(clinicId);
+    }
+  }, [searchParams]);
+
+  // Example data fetching logic
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const response = await api.get("/patients");
+        console.log("API Response:", response.data); // Log the response here
+        setSearchResults(response.data);
+      } catch (error) {
+        console.error("Error fetching patients:", error);
+        setSearchResults([]);
+      }
+    };
+
+    fetchPatients();
+  }, []);
+
+  const handleSearch = async (value: string) => {
+    if (!value || value.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const response = await api.get(`/patients/search/${value}`);
+      setSearchResults(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+      toast.error("Failed to search patients");
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="max-w-[960px] mx-auto">
@@ -466,7 +493,7 @@ export function ServiceRequest() {
           <CardContent className="p-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="flex justify-between items-end mb-6">
+                <div className="flex items-center justify-between mb-6">
                   <FormField
                     control={form.control}
                     name="clinicId"
@@ -489,14 +516,13 @@ export function ServiceRequest() {
                       </FormItem>
                     )}
                   />
-
                   <Button
-                    type="button"
                     variant="outline"
-                    onClick={() => setShowSearchDialog(true)}
+                    type="button"
+                    onClick={() => setShowPatientSearchDialog(true)}
                     className="h-10"
                   >
-                    Advanced Search
+                    Search Patients
                   </Button>
                 </div>
 
@@ -702,7 +728,7 @@ export function ServiceRequest() {
                             type="button"
                             onClick={() => setShowHistory(true)}
                           >
-                            View History
+                            View History →
                             {requestHistory.length > 0 && (
                               <Badge variant="secondary" className="ml-2">
                                 {requestHistory.length}
@@ -856,7 +882,7 @@ export function ServiceRequest() {
 
       {/* Patient Search Dialog */}
       <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[1200px]">
           <DialogHeader>
             <DialogTitle>Search Patient</DialogTitle>
             <DialogDescription>
@@ -876,9 +902,6 @@ export function ServiceRequest() {
                       ...prev,
                       searchTerm: e.target.value,
                     }));
-                    if (e.target.value.length >= 3) {
-                      handleAdvancedSearch();
-                    }
                   }}
                   className="w-full pr-8"
                 />
@@ -927,7 +950,6 @@ export function ServiceRequest() {
                       value={searchForm.gender}
                       onValueChange={(value) => {
                         setSearchForm((prev) => ({ ...prev, gender: value }));
-                        handleAdvancedSearch();
                       }}
                     >
                       <SelectTrigger>
@@ -947,7 +969,6 @@ export function ServiceRequest() {
                       value={searchForm.ageRange}
                       onValueChange={(value) => {
                         setSearchForm((prev) => ({ ...prev, ageRange: value }));
-                        handleAdvancedSearch();
                       }}
                     >
                       <SelectTrigger>
@@ -972,7 +993,6 @@ export function ServiceRequest() {
                           ...prev,
                           lastVisit: value,
                         }));
-                        handleAdvancedSearch();
                       }}
                     >
                       <SelectTrigger>
@@ -1023,29 +1043,25 @@ export function ServiceRequest() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {searchResults.map((patient) => (
-                    <TableRow key={patient.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">
-                            {patient.firstName} {patient.middleName}{" "}
-                            {patient.lastName}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{patient.clinicId}</TableCell>
-                      <TableCell>{patient.gender}</TableCell>
-                      <TableCell>{patient.contact}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handlePatientSelect(patient)}
-                        >
-                          Select
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {Array.isArray(searchResults) &&
+                    searchResults.map((patient) => (
+                      <TableRow key={patient.id}>
+                        <TableCell>
+                          {patient.firstName} {patient.lastName}
+                        </TableCell>
+                        <TableCell>{patient.clinicId}</TableCell>
+                        <TableCell>{patient.gender}</TableCell>
+                        <TableCell>{patient.contact}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => handlePatientSelect(patient)}
+                          >
+                            Select
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
@@ -1057,6 +1073,30 @@ export function ServiceRequest() {
               onClick={() => setShowSearchDialog(false)}
             >
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Patient Search Dialog */}
+      <Dialog
+        open={showPatientSearchDialog}
+        onOpenChange={setShowPatientSearchDialog}
+      >
+        <DialogContent className="sm:max-w-[1000px]">
+          <DialogHeader>
+            <DialogTitle>Search Patient</DialogTitle>
+            <DialogDescription>
+              Quick search or use filters for detailed search
+            </DialogDescription>
+          </DialogHeader>
+          <PatientSearch />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPatientSearchDialog(false)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

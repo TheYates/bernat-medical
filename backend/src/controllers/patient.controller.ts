@@ -1,3 +1,5 @@
+export {};
+
 import { Request, Response } from "express";
 import { pool } from "../db";
 import { createAuditLog } from "../services/audit.service";
@@ -191,95 +193,78 @@ export const getPatientByClinicId = async (req: Request, res: Response) => {
   }
 };
 
-export const searchPatients = async (req: Request, res: Response) => {
+export const searchPatients = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
-    const {
-      searchTerm,
-      gender,
-      maritalStatus,
-      page = 1,
-      pageSize = 10,
-    } = req.query;
-    const offset = (Number(page) - 1) * Number(pageSize);
+    const { searchTerm, gender, ageRange, maritalStatus, lastVisit } =
+      req.query as Record<string, string>;
 
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM patients
-      WHERE 1=1
-    `;
-
-    let query = `
-      SELECT id, clinic_id, first_name, middle_name, last_name,
-             date_of_birth, gender, contact, marital_status,
-             residence, emergency_contact_name, emergency_contact_number,
-             emergency_contact_relation, created_at as registeredAt
-      FROM patients
-      WHERE 1=1
-    `;
-
+    let query = "SELECT * FROM patients WHERE 1=1";
     const params: any[] = [];
-    const countParams: any[] = [];
 
     if (searchTerm) {
-      const whereClause = ` AND (
-        first_name LIKE ? OR
-        middle_name LIKE ? OR
-        last_name LIKE ? OR
-        contact LIKE ? OR
-        clinic_id LIKE ?
-      )`;
-      query += whereClause;
-      countQuery += whereClause;
-      const term = `%${searchTerm}%`;
-      params.push(term, term, term, term, term);
-      countParams.push(term, term, term, term, term);
+      query +=
+        " AND (first_name LIKE ? OR middle_name LIKE ? OR last_name LIKE ? OR clinic_id LIKE ? OR contact LIKE ?)";
+      params.push(
+        `%${searchTerm}%`,
+        `%${searchTerm}%`,
+        `%${searchTerm}%`,
+        `%${searchTerm}%`,
+        `%${searchTerm}%`
+      );
     }
 
     if (gender && gender !== "any") {
-      query += ` AND gender = ?`;
-      countQuery += ` AND gender = ?`;
+      query += " AND gender = ?";
       params.push(gender);
-      countParams.push(gender);
     }
 
     if (maritalStatus && maritalStatus !== "any") {
-      query += ` AND marital_status = ?`;
-      countQuery += ` AND marital_status = ?`;
+      query += " AND marital_status = ?";
       params.push(maritalStatus);
-      countParams.push(maritalStatus);
     }
 
-    const limit = Number(pageSize);
-    const offsetVal = Number(offset);
-    query += ` ORDER BY first_name ASC LIMIT ${limit} OFFSET ${offsetVal}`;
+    // Example age range filter
+    if (ageRange && ageRange !== "any") {
+      const [minAge, maxAge] = ageRange.split("-");
+      query +=
+        " AND TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?";
+      params.push(minAge, maxAge);
+    }
 
-    const [[countResult]] = await pool.execute<RowDataPacket[]>(
-      countQuery,
-      countParams
-    );
-    const [patients] = await pool.execute<RowDataPacket[]>(query, params);
+    // Example last visit filter
+    if (lastVisit && lastVisit !== "any") {
+      const dateCondition = {
+        today: "= CURDATE()",
+        week: ">= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)",
+        month: ">= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)",
+        year: ">= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)",
+      }[lastVisit];
+      if (dateCondition) {
+        query += ` AND last_visit ${dateCondition}`;
+      }
+    }
 
-    res.json({
-      patients: (patients as RowDataPacket[]).map((p) => ({
-        id: p.id,
-        clinicId: p.clinic_id,
-        firstName: p.first_name,
-        middleName: p.middle_name,
-        lastName: p.last_name,
-        dateOfBirth: p.date_of_birth,
-        gender: p.gender,
-        contact: p.contact,
-        maritalStatus: p.marital_status,
-        residence: p.residence,
-        emergencyContactName: p.emergency_contact_name,
-        emergencyContactNumber: p.emergency_contact_number,
-        emergencyContactRelation: p.emergency_contact_relation,
-        registeredAt: p.registeredAt,
-      })),
-      total: (countResult as RowDataPacket).total,
-      page: Number(page),
-      pageSize: Number(pageSize),
-    });
+    const [patients] = (await pool.execute(query, params)) as [
+      RowDataPacket[],
+      any
+    ];
+
+    const mappedPatients = patients.map((patient: any) => ({
+      id: patient.id,
+      firstName: patient.first_name,
+      middleName: patient.middle_name,
+      lastName: patient.last_name,
+      clinicId: patient.clinic_id,
+      gender: patient.gender,
+      contact: patient.contact,
+      maritalStatus: patient.marital_status,
+      lastVisit: patient.last_visit,
+    }));
+
+    res.json(mappedPatients);
   } catch (error) {
     console.error("Error searching patients:", error);
     res.status(500).json({ message: "Failed to search patients" });
@@ -392,5 +377,15 @@ export const deletePatient = async (
   } catch (error) {
     console.error("Error deleting patient:", error);
     res.status(500).json({ message: "Failed to delete patient" });
+  }
+};
+
+export const getPatients = async (req: Request, res: Response) => {
+  try {
+    const [patients] = await pool.execute("SELECT * FROM patients");
+    res.json(patients);
+  } catch (error) {
+    console.error("Error fetching patients:", error);
+    res.status(500).json({ message: "Failed to fetch patients" });
   }
 };

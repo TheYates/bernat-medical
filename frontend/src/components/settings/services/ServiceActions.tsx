@@ -3,41 +3,54 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash, Power } from 'lucide-react';
-import type { Service } from '@/types/service';
-import { useState } from 'react';
-import { api } from '@/lib/api';
-import { toast } from 'sonner';
-import { AlertDialog, AlertDialogAction, 
-    AlertDialogCancel, AlertDialogContent, 
-    AlertDialogDescription, AlertDialogFooter, 
-    AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { EditServiceDialog } from './EditServiceDialog';
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Edit, Trash, Power } from "lucide-react";
+import type { Service } from "@/types/service";
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EditServiceDialog } from "./EditServiceDialog";
 
 interface ServiceActionsProps {
   service: Service;
   onServiceUpdated: () => void;
 }
 
-export function ServiceActions({ service, onServiceUpdated }: ServiceActionsProps) {
+export function ServiceActions({
+  service,
+  onServiceUpdated,
+}: ServiceActionsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'toggle' | 'delete' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "toggle" | "delete" | null
+  >(null);
 
   const handleAction = async () => {
     if (!confirmAction) return;
 
     try {
       setIsLoading(true);
-      if (confirmAction === 'toggle') {
+      if (confirmAction === "toggle") {
         await api.patch(`/services/${service.id}/toggle-status`);
-        toast.success(`Service ${service.active ? 'deactivated' : 'activated'} successfully`);
+        toast.success(
+          `Service ${service.active ? "deactivated" : "activated"} successfully`
+        );
       } else {
         await api.delete(`/services/${service.id}`);
-        toast.success('Service deleted successfully');
+        toast.success("Service deleted successfully");
       }
       onServiceUpdated();
     } catch (error) {
@@ -62,19 +75,19 @@ export function ServiceActions({ service, onServiceUpdated }: ServiceActionsProp
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={() => {
-              setConfirmAction('toggle');
+              setConfirmAction("toggle");
               setShowConfirmDialog(true);
             }}
           >
             <Power className="mr-2 h-4 w-4" />
-            {service.active ? 'Deactivate' : 'Activate'}
+            {service.active ? "Deactivate" : "Activate"}
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-red-600"
             onClick={() => {
-              setConfirmAction('delete');
+              setConfirmAction("delete");
               setShowConfirmDialog(true);
             }}
           >
@@ -96,19 +109,21 @@ export function ServiceActions({ service, onServiceUpdated }: ServiceActionsProp
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction === 'delete' 
-                ? 'This will permanently delete the service.'
-                : `This will ${service.active ? 'deactivate' : 'activate'} the service.`}
+              {confirmAction === "delete"
+                ? "This will permanently delete the service."
+                : `This will ${
+                    service.active ? "deactivate" : "activate"
+                  } the service.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleAction} disabled={isLoading}>
-              {isLoading ? 'Processing...' : 'Confirm'}
+              {isLoading ? "Processing..." : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
-} 
+}

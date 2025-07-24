@@ -90,22 +90,22 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
 
       setIsLoadingInvestigations(true);
       try {
-        // Fetch services - make category check case-insensitive
-        const servicesResponse = await api.get("/services", {
-          params: {
-            category: "laboratory", // lowercase to match database
-          },
-        });
-        setServices(servicesResponse.data);
+        // Fetch services
+        const servicesResponse = await api.get("/services");
+        const filteredServices = servicesResponse.data.filter(
+          (service: Service) =>
+            service.category.toLowerCase() !== "consultation"
+        );
+        setServices(filteredServices);
 
         // Fetch investigations
-        const investigationsData = await investigationsService.getHistory(
-          patient.id
+        const investigationsResponse = await api.get(
+          `/lab-requests/${patient.id}/history`
         );
-        setInvestigations(investigationsData);
+        setInvestigations(investigationsResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
-        toast.error("Failed to fetch data");
+        toast.error("Failed to load data");
       } finally {
         setIsLoadingInvestigations(false);
       }
@@ -149,6 +149,17 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
       setSelectedServices([]);
       setOpen(false);
       setShowConfirmDialog(false);
+
+      // Refresh investigations and history
+      const investigationsResponse = await api.get(
+        `/lab-requests/${patient.id}/history`
+      );
+      setInvestigations(investigationsResponse.data);
+
+      const historyResponse = await api.get(
+        `/lab-requests/${patient.id}/history`
+      );
+      setInvestigationHistory(historyResponse.data);
     } catch (error) {
       console.error("Investigation request error:", error);
       toast.error("Failed to create investigation request");
@@ -179,8 +190,8 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
   // Helper function to get correct file URL
   const getFileUrl = (fileUrl: string | undefined) => {
     if (!fileUrl) return "";
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    return fileUrl.startsWith("http") ? fileUrl : `${apiUrl}${fileUrl}`;
+    const filename = fileUrl.split("/").pop();
+    return `${import.meta.env.VITE_API_URL}/uploads/${filename}`;
   };
 
   // Add this function to handle viewing history
@@ -278,12 +289,10 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {investigation.result || "-"}
-                        {investigation.fileUrl && (
+                        {investigation.fileUrl ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="ml-2"
                             onClick={() =>
                               window.open(
                                 getFileUrl(investigation.fileUrl),
@@ -291,8 +300,10 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                               )
                             }
                           >
-                            <FileText className="h-4 w-4" />
+                            View Result
                           </Button>
+                        ) : (
+                          "-"
                         )}
                       </TableCell>
                       <TableCell>
@@ -628,23 +639,16 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
 
                 {/* Attachments Section */}
                 {selectedResult.fileUrl && (
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">
-                      Attachments
-                    </label>
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <a
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowDocumentPreview(true);
-                        }}
-                        href="#"
-                        className="text-primary hover:underline flex items-center gap-2 cursor-pointer"
-                      >
-                        <FileText className="h-4 w-4" />
-                        View Result Document
-                      </a>
-                    </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <a
+                      href={getFileUrl(selectedResult.fileUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      View Result Document
+                    </a>
                   </div>
                 )}
 
@@ -714,9 +718,9 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
             <AlertDialogTitle>Confirm Investigation Request</AlertDialogTitle>
             <AlertDialogDescription>
               <div className="space-y-4">
-                <p>
+                <div>
                   Are you sure you want to request the following investigations?
-                </p>
+                </div>
 
                 <div className="bg-muted p-4 rounded-lg space-y-2">
                   {selectedServices.map((service) => (
@@ -735,7 +739,7 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
 
                   <div className="flex justify-between font-medium">
                     <span>Total</span>
-                    <span>
+                    <span className="font-medium">
                       {formatCurrency(
                         selectedServices.reduce(
                           (sum, service) => sum + service.price,
@@ -746,10 +750,10 @@ export function InvestigationsTab({ patient }: InvestigationsTabProps) {
                   </div>
                 </div>
 
-                <p className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   This will create investigation requests that need to be
                   processed by the laboratory department.
-                </p>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -1,10 +1,10 @@
-import type { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { pool } from '../db';
-import type { ResultSetHeader, RowDataPacket, FieldPacket } from 'mysql2';
-import { createAuditLog, getClientIp } from '../services/audit.service';
-import type { AuthenticatedRequest } from '../types/auth';
+import type { Request, Response } from "express";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { pool } from "../db";
+import type { ResultSetHeader, RowDataPacket, FieldPacket } from "mysql2";
+import { createAuditLog, getClientIp } from "../services/audit.service";
+import type { AuthenticatedRequest } from "../types/auth";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -12,12 +12,12 @@ export const register = async (req: Request, res: Response) => {
 
     // Check if user already exists
     const [existingUsers] = await pool.execute(
-      'SELECT * FROM users WHERE username = ?',
+      "SELECT * FROM users WHERE username = ?",
       [username]
     );
 
     if (Array.isArray(existingUsers) && existingUsers.length > 0) {
-      return res.status(400).json({ message: 'Username already taken' });
+      return res.status(400).json({ message: "Username already taken" });
     }
 
     // Hash password
@@ -26,7 +26,7 @@ export const register = async (req: Request, res: Response) => {
 
     // Insert user into database
     const [result] = await pool.execute(
-      'INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)',
+      "INSERT INTO users (username, password, full_name, role) VALUES (?, ?, ?, ?)",
       [username, hashedPassword, fullName, role]
     );
 
@@ -36,8 +36,8 @@ export const register = async (req: Request, res: Response) => {
     // Create JWT token
     const token = jwt.sign(
       { id: userId },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '1d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "1d" }
     );
 
     res.status(201).json({
@@ -50,42 +50,45 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Registration error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 export const login = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
-    console.log('Login attempt:', { username });
+    console.log("Login attempt:", { username });
 
     // Check if user exists
     const [users] = await pool.execute(
-      'SELECT * FROM users WHERE username = ?',
+      "SELECT * FROM users WHERE username = ?",
       [username]
     );
 
     const user = (users as any[])[0];
-    console.log('Found user:', user ? { id: user.id, role: user.role } : 'No user found');
+    console.log(
+      "Found user:",
+      user ? { id: user.id, role: user.role } : "No user found"
+    );
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
-    console.log('Password check:', { isValid: isValidPassword });
+    console.log("Password check:", { isValid: isValidPassword });
 
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Create JWT token
     const token = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '1d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "1d" }
     );
 
     res.json({
@@ -99,26 +102,28 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const [users] = await pool.execute(
-      'SELECT id, username, full_name, role, access, created_at FROM users'
-    ) as [RowDataPacket[], any];
+    const [users] = (await pool.execute(
+      "SELECT id, username, full_name, role, access, created_at FROM users"
+    )) as [RowDataPacket[], any];
 
-    res.json(users.map(user => ({
-      ...user,
-      access: JSON.parse(user.access || '[]'),
-      fullName: user.full_name,
-      createdAt: user.created_at
-    })));
+    res.json(
+      users.map((user) => ({
+        ...user,
+        access: JSON.parse(user.access || "[]"),
+        fullName: user.full_name,
+        createdAt: user.created_at,
+      }))
+    );
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -127,13 +132,13 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
     const { username, password, fullName, role, access } = req.body;
 
     // Check if username exists
-    const [existing] = await pool.execute(
-      'SELECT id FROM users WHERE username = ?',
+    const [existing] = (await pool.execute(
+      "SELECT id FROM users WHERE username = ?",
       [username]
-    ) as [RowDataPacket[], any];
+    )) as [RowDataPacket[], any];
 
     if (existing.length) {
-      return res.status(400).json({ message: 'Username already exists' });
+      return res.status(400).json({ message: "Username already exists" });
     }
 
     // Hash password
@@ -149,38 +154,39 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
 
     await createAuditLog({
       userId: req.user?.id || 0,
-      actionType: 'create',
-      entityType: 'user',
+      actionType: "create",
+      entityType: "user",
       entityId: (result as any).insertId,
       details: { username, fullName, role, access },
-      ipAddress: getClientIp(req)
+      ipAddress: getClientIp(req),
     });
 
-    res.status(201).json({ message: 'User created successfully' });
+    res.status(201).json({ message: "User created successfully" });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error creating user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log(`Updating user with ID: ${id}`);
     const { fullName, role, access } = req.body;
 
     // Check if user exists
     const [existingUsers] = await pool.execute(
-      'SELECT * FROM users WHERE id = ?',
+      "SELECT * FROM users WHERE id = ?",
       [id]
     );
 
     if (!Array.isArray(existingUsers) || existingUsers.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Update user
     await pool.execute(
-      'UPDATE users SET full_name = ?, role = ?, access = ? WHERE id = ?',
+      "UPDATE users SET full_name = ?, role = ?, access = ? WHERE id = ?",
       [fullName, role, JSON.stringify(access), id]
     );
 
@@ -191,8 +197,8 @@ export const updateUser = async (req: Request, res: Response) => {
       access,
     });
   } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -202,34 +208,32 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     // Prevent deleting the last admin
     const [admins] = await pool.execute(
-      'SELECT COUNT(*) as count FROM users WHERE role = ?',
-      ['admin']
+      "SELECT COUNT(*) as count FROM users WHERE role = ?",
+      ["admin"]
     );
-    
+
     const adminCount = (admins as any[])[0].count;
-    
-    const [user] = await pool.execute(
-      'SELECT role FROM users WHERE id = ?',
-      [id]
-    ) as [RowDataPacket[], FieldPacket[]];
-    
-    if (Array.isArray(user) && user[0]?.role === 'admin' && adminCount <= 1) {
-      return res.status(400).json({ message: 'Cannot delete the last admin user' });
+
+    const [user] = (await pool.execute("SELECT role FROM users WHERE id = ?", [
+      id,
+    ])) as [RowDataPacket[], FieldPacket[]];
+
+    if (Array.isArray(user) && user[0]?.role === "admin" && adminCount <= 1) {
+      return res
+        .status(400)
+        .json({ message: "Cannot delete the last admin user" });
     }
 
-    const [result] = await pool.execute(
-      'DELETE FROM users WHERE id = ?',
-      [id]
-    );
+    const [result] = await pool.execute("DELETE FROM users WHERE id = ?", [id]);
 
     const deleteResult = result as ResultSetHeader;
     if (deleteResult.affectedRows === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ message: 'User deleted successfully' });
+    res.json({ message: "User deleted successfully" });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting user:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

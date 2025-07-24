@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { ServiceTable } from './ServiceTable';
-import { CreateServiceDialog } from './CreateServiceDialog';
-import { useServices } from '@/hooks/useServices';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { ServiceTable } from "./ServiceTable";
+import { CreateServiceDialog } from "../services/CreateServiceDialog";
+import { useServices } from "@/hooks/useServices";
 
 export function ServiceManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -18,13 +18,17 @@ export function ServiceManagement() {
           Add Service
         </Button>
       </div>
-      
+
       {error && (
         <div className="text-red-500">Error loading services: {error}</div>
       )}
-      
-      <ServiceTable services={services} isLoading={isLoading} onServiceUpdated={refetch} />
-      
+
+      <ServiceTable
+        services={services}
+        isLoading={isLoading}
+        onServiceUpdated={refetch}
+      />
+
       <CreateServiceDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
@@ -32,4 +36,4 @@ export function ServiceManagement() {
       />
     </div>
   );
-} 
+}

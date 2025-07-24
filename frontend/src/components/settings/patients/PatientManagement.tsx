@@ -39,7 +39,7 @@ import { Search, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { calculateAge } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Patient } from "@/types/patient";
-import { EditPatientForm } from "./EditPatientForm";
+import { EditPatientForm } from "../patients/EditPatientForm";
 import {
   Pagination,
   PaginationContent,

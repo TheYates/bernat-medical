@@ -3,18 +3,24 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash } from 'lucide-react';
-import type { User } from '@/types/user';
-import { useState } from 'react';
-import { api } from '@/lib/api';
-import { toast } from 'sonner';
-import { AlertDialog, AlertDialogAction, 
-    AlertDialogCancel, AlertDialogContent, 
-    AlertDialogDescription, AlertDialogFooter, 
-    AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { EditUserDialog } from './EditUserDialog';
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Edit, Trash } from "lucide-react";
+import type { User } from "@/types/user";
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EditUserDialog } from "../users/EditUserDialog";
 
 interface UserActionsProps {
   user: User;
@@ -30,10 +36,10 @@ export function UserActions({ user, onUserUpdated }: UserActionsProps) {
     try {
       setIsLoading(true);
       await api.delete(`/users/${user.id}`);
-      toast.success('User deleted successfully');
+      toast.success("User deleted successfully");
       onUserUpdated();
     } catch (error) {
-      toast.error('Failed to delete user');
+      toast.error("Failed to delete user");
     } finally {
       setIsLoading(false);
       setShowConfirmDialog(false);
@@ -53,7 +59,7 @@ export function UserActions({ user, onUserUpdated }: UserActionsProps) {
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-red-600"
             onClick={() => setShowConfirmDialog(true)}
           >
@@ -81,11 +87,11 @@ export function UserActions({ user, onUserUpdated }: UserActionsProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
-              {isLoading ? 'Deleting...' : 'Delete'}
+              {isLoading ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
-} 
+}

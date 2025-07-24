@@ -9,8 +9,8 @@ export interface VitalSigns {
   pulseRate: number;
   respiratoryRate: number;
   oxygenSaturation: number;
-  weight: number;
-  height: number;
+  weight?: number;
+  height?: number;
   fbs?: number;
   rbs?: number;
   fhr?: number;

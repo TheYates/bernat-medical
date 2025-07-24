@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -8,17 +8,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CategoryActions } from './CategoryActions';
-import { FormActions } from './FormActions';
-import { AddCategoryDialog } from './AddCategoryDialog';
-import { AddFormDialog } from './AddFormDialog';
-import { VendorList } from './VendorList';
-import { InsuranceList } from './InsuranceList';
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CategoryActions } from "./CategoryActions";
+import { FormActions } from "./FormActions";
+import { AddCategoryDialog } from "./AddCategoryDialog";
+import { AddFormDialog } from "./AddFormDialog";
+import { VendorList } from "./VendorList";
+import { InsuranceList } from "./InsuranceList";
 import {
   Accordion,
   AccordionContent,
@@ -39,34 +38,46 @@ interface Form {
 }
 
 export function InventorySettings() {
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [formFilter, setFormFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [formFilter, setFormFilter] = useState("");
   const [page, setPage] = useState(1);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const pageSize = 10;
 
-  const { data: categories, isLoading: loadingCategories, refetch: refetchCategories } = useQuery({
-    queryKey: ['drug-categories', page],
+  const {
+    data: categories,
+    isLoading: loadingCategories,
+    refetch: refetchCategories,
+  } = useQuery({
+    queryKey: ["drug-categories", page],
     queryFn: async () => {
-      const response = await api.get(`/inventory/categories?page=${page}&limit=${pageSize}`);
+      const response = await api.get(
+        `/inventory/categories?page=${page}&limit=${pageSize}`
+      );
       return response.data;
     },
   });
 
-  const { data: forms, isLoading: loadingForms, refetch: refetchForms } = useQuery({
-    queryKey: ['drug-forms', page],
+  const {
+    data: forms,
+    isLoading: loadingForms,
+    refetch: refetchForms,
+  } = useQuery({
+    queryKey: ["drug-forms", page],
     queryFn: async () => {
-      const response = await api.get(`/inventory/forms?page=${page}&limit=${pageSize}`);
+      const response = await api.get(
+        `/inventory/forms?page=${page}&limit=${pageSize}`
+      );
       return response.data;
     },
   });
 
-  const filteredCategories = categories?.data?.filter((cat: Category) => 
+  const filteredCategories = categories?.data?.filter((cat: Category) =>
     cat.name.toLowerCase().includes(categoryFilter.toLowerCase())
   );
 
-  const filteredForms = forms?.data?.filter((form: Form) => 
+  const filteredForms = forms?.data?.filter((form: Form) =>
     form.name.toLowerCase().includes(formFilter.toLowerCase())
   );
 
@@ -102,10 +113,15 @@ export function InventorySettings() {
                 <TableBody>
                   {filteredCategories?.map((category: Category) => (
                     <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>{category.description || '-'}</TableCell>
+                      <TableCell className="font-medium">
+                        {category.name}
+                      </TableCell>
+                      <TableCell>{category.description || "-"}</TableCell>
                       <TableCell>
-                        <CategoryActions category={category} onSuccess={refetchCategories} />
+                        <CategoryActions
+                          category={category}
+                          onSuccess={refetchCategories}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -145,7 +161,7 @@ export function InventorySettings() {
                   {filteredForms?.map((form: Form) => (
                     <TableRow key={form.id}>
                       <TableCell className="font-medium">{form.name}</TableCell>
-                      <TableCell>{form.description || '-'}</TableCell>
+                      <TableCell>{form.description || "-"}</TableCell>
                       <TableCell>
                         <FormActions form={form} onSuccess={refetchForms} />
                       </TableCell>
@@ -185,7 +201,7 @@ export function InventorySettings() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -194,7 +210,7 @@ export function InventorySettings() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => p + 1)}
+            onClick={() => setPage((p) => p + 1)}
             disabled={!categories?.hasMore}
           >
             Next
@@ -216,4 +232,4 @@ export function InventorySettings() {
       />
     </div>
   );
-} 
+}

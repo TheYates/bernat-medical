@@ -66,13 +66,11 @@ export function LoginForm() {
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <Icons.logo className="h-12 w-auto" />
+          <h1 className="text-2xl font-bold">Bernat Medical</h1>
         </div>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
-            <p className="text-lg">
-              "This clinic management system has streamlined our operations and
-              improved patient care."
-            </p>
+            <p className="text-lg">"Quality Care at your Convenience"</p>
             <footer className="text-sm">Admin</footer>
           </blockquote>
         </div>

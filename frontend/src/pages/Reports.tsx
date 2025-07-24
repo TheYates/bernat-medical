@@ -16,7 +16,7 @@ export function ReportsPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[1500px] mx-auto">
+      <div className="max-w-[960px] mx-auto">
         <div>
           <h1 className="text-3xl font-bold">Reports</h1>
           <p className="text-muted-foreground">View system reports and logs</p>

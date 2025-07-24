@@ -28,11 +28,10 @@ export const getXrayRequestHistory = async (
           'fullName', p.full_name
         ) as performedBy
       FROM lab_requests lr
-      JOIN service_request_items sri ON lr.id = sri.request_id
-      JOIN services s ON sri.service_id = s.id
+      JOIN services s ON lr.service_id = s.id
       JOIN users u ON lr.requested_by = u.id
       LEFT JOIN users p ON lr.completed_by = p.id
-      WHERE lr.patient_id = ? AND s.category = 'radiology'
+      WHERE lr.patient_id = ? AND s.category = 'Radiology'
       ORDER BY lr.created_at DESC`,
       [req.params.patientId]
     );
@@ -51,6 +50,31 @@ export const getWaitingList = async (
   try {
     const [requests] = await pool.execute<RowDataPacket[]>(
       `SELECT 
+        lr.id,
+        lr.patient_id,
+        lr.status,
+        DATE_FORMAT(lr.created_at, '%Y-%m-%dT%H:%i:%s.000Z') as createdAt,
+        JSON_OBJECT(
+          'id', p.id,
+          'clinicId', p.clinic_id,
+          'firstName', p.first_name,
+          'middleName', p.middle_name,
+          'lastName', p.last_name,
+          'dateOfBirth', p.date_of_birth,
+          'gender', p.gender
+        ) as patient,
+        JSON_OBJECT(
+          'id', s.id,
+          'name', s.name,
+          'category', s.category,
+          'price', s.price
+        ) as service
+      FROM lab_requests lr
+      JOIN patients p ON lr.patient_id = p.id
+      JOIN services s ON lr.service_id = s.id
+      WHERE lr.status = 'Pending' AND s.category = 'Radiology'
+      UNION
+      SELECT 
         sr.id,
         sr.patient_id,
         sr.status,
@@ -74,9 +98,11 @@ export const getWaitingList = async (
       JOIN patients p ON sr.patient_id = p.id
       JOIN service_request_items sri ON sr.id = sri.request_id
       JOIN services s ON sri.service_id = s.id
-      WHERE sr.status = 'pending' AND s.category = 'radiology'
-      ORDER BY sr.created_at ASC`
+      WHERE sr.status = 'Pending' AND s.category = 'Radiology'
+      ORDER BY createdAt ASC`
     );
+
+    // console.log("Waiting list query results:", requests);
 
     res.json(requests);
   } catch (error) {
@@ -97,16 +123,22 @@ export const updateResult = async (
     const { result } = req.body;
     const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    await connection.execute(
-      `UPDATE service_requests 
-       SET result = ?, 
-           file_url = ?,
-           status = 'Completed',
-           performed_by = ?,
-           performed_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [result, fileUrl, req.user?.id, req.params.requestId]
-    );
+    const updateResultQuery = `
+      UPDATE lab_requests 
+      SET result = ?, 
+          file_url = ?,
+          status = 'Completed',
+          completed_by = ?,
+          completed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+
+    await connection.execute(updateResultQuery, [
+      result,
+      fileUrl,
+      req.user?.id,
+      req.params.requestId,
+    ]);
 
     await createAuditLog({
       userId: req.user?.id as number,

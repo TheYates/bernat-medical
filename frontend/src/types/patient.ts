@@ -1,3 +1,5 @@
+import { VitalSigns } from "./vitals";
+
 export interface Patient {
   id: number;
   clinicId: string;
@@ -13,4 +15,6 @@ export interface Patient {
   emergencyContactNumber?: string;
   emergencyContactRelation?: string;
   registeredAt: string;
+  serviceRequestId?: number;
+  todayVitalSigns?: VitalSigns | null;
 }

@@ -50,6 +50,7 @@ import {
   Loader2,
   Banknote,
   CreditCard,
+  Upload,
 } from "lucide-react";
 import { calculateAge, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ import {
 } from "@/services/lab-waiting-list.service";
 import { Investigation } from "@/services/investigations.service";
 import { Payment } from "@/services/prescriptions.service";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Patient {
   id: string;
@@ -388,73 +390,91 @@ export function LaboratoryPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {patientInvestigations.map((investigation) => (
-                        <TableRow key={investigation.id}>
-                          <TableCell>
-                            <div>
+                      {!patient ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="text-center text-muted-foreground h-24"
+                          >
+                            Enter clinic ID to view patient's laboratory test
+                            history
+                          </TableCell>
+                        </TableRow>
+                      ) : isLoadingPatientData ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center">
+                            <div className="flex justify-center items-center h-24">
+                              <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : patientInvestigations.length > 0 ? (
+                        patientInvestigations.map((investigation) => (
+                          <TableRow key={investigation.id}>
+                            <TableCell>
                               {format(
                                 new Date(investigation.createdAt),
                                 "dd MMM yyyy"
                               )}
-                              <p className="text-xs text-muted-foreground">
-                                {format(
-                                  new Date(investigation.createdAt),
-                                  "hh:mm a"
-                                )}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">
-                                {investigation.service.name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {investigation.service.category}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedResult(investigation);
-                                setShowResultDetails(true);
-                              }}
-                            >
-                              . . .
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(investigation.service.price)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                investigation.status === "Completed"
-                                  ? "success"
-                                  : investigation.status === "In Progress"
-                                  ? "warning"
-                                  : investigation.status === "Cancelled"
-                                  ? "destructive"
-                                  : "default"
-                              }
-                            >
-                              {investigation.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {investigation.requestedBy.fullName}
-                          </TableCell>
-                          <TableCell>
-                            {investigation.status === "Completed" &&
-                            investigation.performedBy
-                              ? investigation.performedBy.fullName
-                              : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">
+                                  {investigation.service.name}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {investigation.service.category}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedResult(investigation);
+                                  setShowResultDetails(true);
+                                }}
+                              >
+                                View Details
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              {formatCurrency(investigation.service.price)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  investigation.status === "Completed"
+                                    ? "success"
+                                    : investigation.status === "In Progress"
+                                    ? "warning"
+                                    : investigation.status === "Cancelled"
+                                    ? "destructive"
+                                    : "default"
+                                }
+                              >
+                                {investigation.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {investigation.requestedBy.fullName}
+                            </TableCell>
+                            <TableCell>
+                              {investigation.performedBy?.fullName || "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="text-center text-muted-foreground"
+                          >
+                            No laboratory test history found for this patient
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 ) : (
@@ -564,34 +584,58 @@ export function LaboratoryPage() {
 
       {/* Result Update Dialog */}
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Update Test Result</DialogTitle>
             <DialogDescription>
-              Enter the test result or upload a result document
+              Manage the result details or upload a document
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Test Result</Label>
-              <Textarea
-                value={result}
-                onChange={(e) => setResult(e.target.value)}
-                placeholder="Enter test result"
-                className="min-h-[100px]"
-              />
-            </div>
-            <div>
-              <Label>Upload Result Document</Label>
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => setResultFile(e.target.files?.[0] || null)}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Accepted formats: PDF, JPG, JPEG, PNG
-              </p>
-            </div>
+            <Tabs defaultValue="result">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="result">Result</TabsTrigger>
+                <TabsTrigger value="upload">Upload Document</TabsTrigger>
+              </TabsList>
+              <TabsContent value="result">
+                <div className="space-y-4">
+                  <Label>Result</Label>
+                  <Textarea
+                    value={result}
+                    onChange={(e) => setResult(e.target.value)}
+                    placeholder="Enter result"
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="upload">
+                <div className="space-y-4">
+                  <Label>Upload Result Document</Label>
+                  <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) =>
+                        setResultFile(e.target.files?.[0] || null)
+                      }
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <Upload className="h-10 w-10 text-muted-foreground" />
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, JPG, JPEG, PNG (Max. 10MB)
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
             <Button
@@ -672,9 +716,9 @@ export function LaboratoryPage() {
                   {selectedResult.fileUrl && (
                     <div className="mt-4 flex items-center gap-2">
                       <a
-                        href={`${import.meta.env.VITE_API_URL}${
-                          selectedResult.fileUrl
-                        }`}
+                        href={`${
+                          import.meta.env.VITE_API_URL
+                        }/uploads/${selectedResult.fileUrl.split("/").pop()}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-2"

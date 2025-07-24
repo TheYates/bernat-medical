@@ -1,33 +1,47 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { api } from '@/lib/api';
-import type { CreateUserData, AccessType } from '@/types/user';
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { api } from "@/lib/api";
+import type { CreateUserData, AccessType } from "@/types/user";
 
 const createUserSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  fullName: z.string().min(2, 'Full name is required'),
-  role: z.enum(['admin', 'user']),
-  access: z.array(z.enum(['appointments', 'records', 'settings'])),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  fullName: z.string().min(2, "Full name is required"),
+  role: z.enum(["admin", "user"]),
+  access: z.array(
+    z.enum([
+      "register-patient",
+      "service-request",
+      "vital-signs",
+      "consultation",
+      "lab",
+      "xray",
+      "pharmacy",
+      "billing",
+      "inventory",
+      "reports",
+      "settings",
+    ])
+  ),
 });
 
 interface CreateUserDialogProps {
@@ -36,12 +50,22 @@ interface CreateUserDialogProps {
 }
 
 const accessOptions: { id: AccessType; label: string }[] = [
-  { id: 'appointments', label: 'Appointments' },
-  { id: 'records', label: 'Medical Records' },
-  { id: 'settings', label: 'Settings' },
+  { id: "register-patient", label: "Register Patient" },
+  { id: "service-request", label: "Service Request" },
+  { id: "vital-signs", label: "Vital Signs" },
+  { id: "consultation", label: "Consultations" },
+  { id: "lab", label: "Lab" },
+  { id: "xray", label: "X-Ray" },
+  { id: "pharmacy", label: "Pharmacy" },
+  { id: "billing", label: "Billing" },
+  { id: "reports", label: "Reports" },
+  { id: "settings", label: "Settings" },
 ];
 
-export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+export function CreateUserDialog({
+  open,
+  onOpenChange,
+}: CreateUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const {
     register,
@@ -57,18 +81,21 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     },
   });
 
-  const selectedRole = watch('role');
-  const selectedAccess = watch('access');
+  const selectedRole = watch("role");
+  const selectedAccess = watch("access");
 
   const onSubmit = async (data: CreateUserData) => {
     try {
       setIsLoading(true);
-      await api.post('/users', data);
+      await api.post("/users", data);
       reset();
       onOpenChange(false);
       window.location.reload(); // Temporary solution - better to use refetch
     } catch (error: any) {
-      console.error('Failed to create user:', error.response?.data?.message || error);
+      console.error(
+        "Failed to create user:",
+        error.response?.data?.message || error
+      );
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +112,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             <Label htmlFor="username">Username</Label>
             <Input
               id="username"
-              {...register('username')}
+              {...register("username")}
               placeholder="johndoe"
             />
             {errors.username && (
@@ -95,11 +122,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              {...register('password')}
-            />
+            <Input id="password" type="password" {...register("password")} />
             {errors.password && (
               <p className="text-sm text-red-500">{errors.password.message}</p>
             )}
@@ -109,7 +132,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             <Label htmlFor="fullName">Full Name</Label>
             <Input
               id="fullName"
-              {...register('fullName')}
+              {...register("fullName")}
               placeholder="John Doe"
             />
             {errors.fullName && (
@@ -120,7 +143,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select
-              onValueChange={(value) => setValue('role', value as 'admin' | 'user')}
+              onValueChange={(value) =>
+                setValue("role", value as "admin" | "user")
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
@@ -138,7 +163,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
           {selectedRole && (
             <div className="space-y-2">
               <Label>Access</Label>
-              <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-4">
                 {accessOptions.map((option) => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <Checkbox
@@ -148,8 +173,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         const current = selectedAccess || [];
                         const updated = checked
                           ? [...current, option.id]
-                          : current.filter(id => id !== option.id);
-                        setValue('access', updated);
+                          : current.filter((id) => id !== option.id);
+                        setValue("access", updated);
                       }}
                     />
                     <Label htmlFor={option.id}>{option.label}</Label>
@@ -168,11 +193,11 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create User'}
+              {isLoading ? "Creating..." : "Create User"}
             </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
   );
-} 
+}

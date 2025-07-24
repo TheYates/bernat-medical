@@ -41,6 +41,7 @@ import { format } from "date-fns";
 import { calculateAge } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Patient } from "@/types/patient";
+import { VitalSigns } from "@/types/vitals";
 
 // Import tab components
 import { ComplaintsTab } from "@/components/consultation/ComplaintsTab";
@@ -73,6 +74,7 @@ const consultationSchema = z.object({
   treatment: z.string().min(1, "Treatment plan is required"),
   treatmentNotes: z.string().optional(),
   prescriptions: z.array(z.any()).optional(),
+  vitalSigns: z.custom<VitalSigns>().optional(),
 });
 
 type TabKey = "complaints" | "clinicalNotes" | "diagnosis" | "treatment";

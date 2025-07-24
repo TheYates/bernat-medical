@@ -26,9 +26,32 @@ export const getWaitingList = async (req: Request, res: Response) => {
       FROM lab_requests lr
       JOIN patients p ON lr.patient_id = p.id
       JOIN services s ON lr.service_id = s.id
-      WHERE lr.status = 'Pending'
-      ORDER BY lr.created_at ASC`
+      WHERE lr.status = 'Pending' AND s.category = 'Laboratory'
+      UNION
+      SELECT 
+        sr.id,
+        sr.created_at as createdAt,
+        sr.status,
+        p.id as 'patient.id',
+        p.clinic_id as 'patient.clinicId',
+        p.first_name as 'patient.firstName',
+        p.middle_name as 'patient.middleName',
+        p.last_name as 'patient.lastName',
+        p.date_of_birth as 'patient.dateOfBirth',
+        p.gender as 'patient.gender',
+        s.id as 'service.id',
+        s.name as 'service.name',
+        s.category as 'service.category',
+        s.price as 'service.price'
+      FROM service_requests sr
+      JOIN patients p ON sr.patient_id = p.id
+      JOIN service_request_items sri ON sr.id = sri.request_id
+      JOIN services s ON sri.service_id = s.id
+      WHERE sr.status = 'Pending' AND s.category = 'Laboratory'
+      ORDER BY createdAt ASC`
     )) as [RowDataPacket[], any];
+
+    console.log("Lab request waiting list query results:", rows);
 
     const formattedRows = rows.map((row) => ({
       id: row.id,
@@ -81,7 +104,7 @@ export const getPatientHistory = async (req: Request, res: Response) => {
       JOIN services s ON lr.service_id = s.id
       JOIN users u ON lr.requested_by = u.id
       LEFT JOIN users performed ON lr.completed_by = performed.id
-      WHERE lr.patient_id = ?
+      WHERE lr.patient_id = ? AND s.category = 'Laboratory'
       ORDER BY lr.created_at DESC`,
       [patientId]
     )) as [RowDataPacket[], any];
@@ -124,13 +147,7 @@ export const updateResult = async (
   try {
     const { requestId } = req.params;
     const { result } = req.body;
-    const fileUrl = req.file ? `/api/uploads/${req.file.filename}` : null;
-
-    console.log("File details:", {
-      file: req.file,
-      fileUrl,
-      fullPath: path.join(__dirname, "../uploads", req.file?.filename || ""),
-    });
+    const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     await pool.execute(
       `UPDATE lab_requests 
@@ -329,6 +346,45 @@ export const createRequest = async (
         error: "Unknown error occurred",
       });
     }
+  }
+};
+
+export const getLabRequestHistory = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const [requests] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        lr.id, lr.patient_id, lr.status,
+        DATE_FORMAT(lr.created_at, '%Y-%m-%dT%H:%i:%s.000Z') as createdAt,
+        lr.result, lr.file_url,
+        JSON_OBJECT(
+          'id', s.id,
+          'name', s.name,
+          'category', s.category,
+          'price', s.price
+        ) as service,
+        JSON_OBJECT(
+          'username', u.username,
+          'fullName', u.full_name
+        ) as requestedBy,
+        JSON_OBJECT(
+          'fullName', p.full_name
+        ) as performedBy
+      FROM lab_requests lr
+      JOIN services s ON lr.service_id = s.id
+      JOIN users u ON lr.requested_by = u.id
+      LEFT JOIN users p ON lr.completed_by = p.id
+      WHERE lr.patient_id = ? AND s.category = 'Laboratory'
+      ORDER BY lr.created_at DESC`,
+      [req.params.patientId]
+    );
+
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching lab request history:", error);
+    res.status(500).json({ message: "Failed to fetch history" });
   }
 };
 

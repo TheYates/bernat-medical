@@ -1,14 +1,16 @@
 export type UserRole = "admin" | "user";
 export type AccessType =
-  | "settings"
-  | "appointments"
-  | "records"
+  | "register-patient"
+  | "service-request"
+  | "vital-signs"
+  | "consultation"
   | "lab"
   | "xray"
   | "pharmacy"
+  | "billing"
+  | "reports"
   | "inventory"
-  | "consultation"
-  | "billing";
+  | "settings";
 
 export interface User {
   id: number;

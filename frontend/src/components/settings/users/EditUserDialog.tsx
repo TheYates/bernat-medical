@@ -1,32 +1,47 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { api } from '@/lib/api';
-import type { User, AccessType } from '@/types/user';
-import { toast } from 'sonner';
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { api } from "@/lib/api";
+import type { User, AccessType } from "@/types/user";
+import { toast } from "sonner";
 
 const editUserSchema = z.object({
-  fullName: z.string().min(2, 'Full name is required'),
-  role: z.enum(['admin', 'user']),
-  access: z.array(z.enum(['appointments', 'records', 'settings'])),
+  fullName: z.string().min(2, "Full name is required"),
+  role: z.enum(["admin", "user"]),
+  access: z.array(
+    z.enum([
+      "appointments",
+      "consultation",
+      "register-patient",
+      "service-request",
+      "vital-signs",
+      "settings",
+      "billing",
+      "reports",
+      "inventory",
+      "lab",
+      "xray",
+      "pharmacy",
+    ])
+  ),
 });
 
 interface EditUserDialogProps {
@@ -37,12 +52,24 @@ interface EditUserDialogProps {
 }
 
 const accessOptions: { id: AccessType; label: string }[] = [
-  { id: 'appointments', label: 'Appointments' },
-  { id: 'records', label: 'Medical Records' },
-  { id: 'settings', label: 'Settings' },
+  { id: "register-patient", label: "Register Patient" },
+  { id: "service-request", label: "Service Request" },
+  { id: "vital-signs", label: "Vital Signs" },
+  { id: "consultation", label: "Consultations" },
+  { id: "billing", label: "Billing" },
+  { id: "reports", label: "Reports" },
+  { id: "inventory", label: "Inventory" },
+  { id: "lab", label: "Lab" },
+  { id: "xray", label: "X-ray" },
+  { id: "pharmacy", label: "Pharmacy" },
 ];
 
-export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUserDialogProps) {
+export function EditUserDialog({
+  user,
+  open,
+  onOpenChange,
+  onSuccess,
+}: EditUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const form = useForm({
     resolver: zodResolver(editUserSchema),
@@ -53,18 +80,18 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
     },
   });
 
-  const selectedRole = form.watch('role');
-  const selectedAccess = form.watch('access');
+  const selectedRole = form.watch("role");
+  const selectedAccess = form.watch("access");
 
   const onSubmit = async (data: z.infer<typeof editUserSchema>) => {
     try {
       setIsLoading(true);
       await api.put(`/users/${user.id}`, data);
-      toast.success('User updated successfully');
+      toast.success("User updated successfully");
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update user');
+      toast.error(error.response?.data?.message || "Failed to update user");
     } finally {
       setIsLoading(false);
     }
@@ -80,12 +107,11 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                {...form.register('fullName')}
-              />
+              <Input id="fullName" {...form.register("fullName")} />
               {form.formState.errors.fullName && (
-                <p className="text-sm text-red-500">{form.formState.errors.fullName.message}</p>
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.fullName.message}
+                </p>
               )}
             </div>
 
@@ -93,7 +119,9 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
               <Label htmlFor="role">Role</Label>
               <Select
                 defaultValue={user.role}
-                onValueChange={(value) => form.setValue('role', value as 'admin' | 'user')}
+                onValueChange={(value) =>
+                  form.setValue("role", value as "admin" | "user")
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
@@ -104,7 +132,9 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
                 </SelectContent>
               </Select>
               {form.formState.errors.role && (
-                <p className="text-sm text-red-500">{form.formState.errors.role.message}</p>
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.role.message}
+                </p>
               )}
             </div>
           </div>
@@ -122,8 +152,8 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
                         const current = selectedAccess || [];
                         const updated = checked
                           ? [...current, option.id as AccessType]
-                          : current.filter(id => id !== option.id);
-                        form.setValue('access', updated);
+                          : current.filter((id) => id !== option.id);
+                        form.setValue("access", updated);
                       }}
                     />
                     <Label htmlFor={option.id}>{option.label}</Label>
@@ -142,11 +172,11 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save Changes'}
+              {isLoading ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
   );
-} 
+}

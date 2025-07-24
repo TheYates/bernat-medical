@@ -43,16 +43,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users2, FileText, Loader2, Banknote, CreditCard } from "lucide-react";
+import {
+  Users2,
+  FileText,
+  Loader2,
+  Banknote,
+  CreditCard,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { calculateAge, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { api } from "@/lib/api";
 import { PatientDetails } from "@/components/shared/patient-details";
 import { Patient } from "@/types/patient";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface XrayWaitingListItem {
   id: string;
+  patient_id: string;
+  status: string;
+  createdAt: string;
+  service: {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+    result?: string;
+  };
   patient: {
     clinicId: string;
     firstName: string;
@@ -61,13 +80,6 @@ interface XrayWaitingListItem {
     dateOfBirth: string;
     gender: string;
   };
-  service: {
-    id: string;
-    name: string;
-    category: string;
-    price: number;
-  };
-  createdAt: string;
 }
 
 interface Payment {
@@ -121,6 +133,7 @@ export function XrayPage() {
   const [investigationToDelete, setInvestigationToDelete] =
     useState<Investigation | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -142,17 +155,36 @@ export function XrayPage() {
   };
 
   const onClinicIdChange = async (value: string) => {
-    if (!value || value.length < 3) {
+    if (!value || value.length < 7) {
       setPatient(null);
+      setPatientInvestigations([]);
       return;
     }
 
     try {
-      const response = await api.get(`/patients/${value}`);
-      setPatient(response.data);
-      fetchPatientInvestigations(String(response.data.id));
+      // First get the patient details
+      const patientResponse = await api.get(`/patients/${value}`);
+      setPatient(patientResponse.data);
+
+      // Only fetch investigations if we have a patient
+      if (patientResponse.data.id) {
+        try {
+          const historyResponse = await api.get(
+            `/xray-requests/${patientResponse.data.id}/history`
+          );
+          setPatientInvestigations(historyResponse.data);
+        } catch (historyError) {
+          console.error("Error fetching investigations:", historyError);
+          setPatientInvestigations([]);
+        }
+      }
     } catch (error) {
-      toast.error("Failed to fetch patient details");
+      setPatient(null);
+      setPatientInvestigations([]);
+      console.error("Error fetching patient:", error);
+      if (value.length >= 7) {
+        toast.error("Patient not found");
+      }
     }
   };
 
@@ -163,7 +195,11 @@ export function XrayPage() {
   };
 
   const handleResultSubmit = async () => {
-    if (!selectedInvestigation || (!result && !resultFile) || !patient) {
+    if (!selectedInvestigation || !patient) {
+      return;
+    }
+
+    if (!result.trim() && !resultFile) {
       toast.error("Please enter a result or upload a file");
       return;
     }
@@ -177,7 +213,12 @@ export function XrayPage() {
 
       await api.post(
         `/xray-requests/${selectedInvestigation.id}/result`,
-        formData
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
       toast.success("Result updated successfully");
@@ -186,8 +227,9 @@ export function XrayPage() {
       setResultFile(null);
       fetchPatientInvestigations(String(patient.id));
       fetchWaitingList();
-    } catch (error) {
-      toast.error("Failed to update result");
+    } catch (error: any) {
+      console.error("Error updating result:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Failed to update result");
     }
   };
 
@@ -228,15 +270,28 @@ export function XrayPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRowClick = (investigation: Investigation) => {
-    if (investigation.status === "Pending") {
-      setSelectedInvestigation(investigation);
+  const handleRowClick = (request: XrayWaitingListItem | Investigation) => {
+    if (request.status === "Pending") {
+      setSelectedInvestigation(request);
       setShowResultDialog(true);
-    } else if (investigation.result) {
-      setSelectedResult(investigation);
+    } else if ("result" in request) {
+      setSelectedResult(request);
       setShowResultDetails(true);
     }
   };
+
+  useEffect(() => {
+    const fetchRadiologyPatients = async () => {
+      try {
+        const response = await api.get("/patients?category=radiology");
+        setPatients(response.data);
+      } catch (error) {
+        console.error("Error fetching radiology patients:", error);
+      }
+    };
+
+    fetchRadiologyPatients();
+  }, []);
 
   return (
     <DashboardLayout>
@@ -303,7 +358,7 @@ export function XrayPage() {
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-background px-2 text-muted-foreground">
-                      INVESTIGATION DETAILS
+                      X-RAY/SCAN REQUESTS
                     </span>
                   </div>
                 </div>
@@ -315,7 +370,7 @@ export function XrayPage() {
                         <div className="flex items-center justify-between mb-6">
                           <div>
                             <h3 className="font-semibold">
-                              Investigation History
+                              X-ray/Scan History
                             </h3>
                             <p className="text-sm text-muted-foreground">
                               View completed x-ray and scan results
@@ -333,80 +388,96 @@ export function XrayPage() {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Date</TableHead>
-                              <TableHead>Test</TableHead>
-                              <TableHead>Details</TableHead>
-                              <TableHead>Amount</TableHead>
-                              <TableHead>Payment</TableHead>
+                              <TableHead>Investigation</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Price</TableHead>
+                              <TableHead>Result</TableHead>
+                              <TableHead>Status</TableHead>
                               <TableHead>Performed By</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {patientInvestigations.map((investigation) => (
-                              <TableRow key={investigation.id}>
-                                <TableCell>
-                                  {format(
-                                    new Date(investigation.createdAt),
-                                    "dd MMM yyyy"
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div>
-                                    <p className="font-medium">
-                                      {investigation.service.name}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {investigation.service.category}
-                                    </p>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedResult(investigation);
-                                      setShowResultDetails(true);
-                                    }}
-                                  >
-                                    View Details
-                                  </Button>
-                                </TableCell>
-                                <TableCell>
-                                  {formatCurrency(investigation.service.price)}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-wrap gap-2">
-                                    {investigation.payments?.map(
-                                      (payment: Payment, index: number) => (
-                                        <div
-                                          key={`payment-${index}`}
-                                          className="flex items-center gap-2"
-                                        >
-                                          {payment.method
-                                            .toLowerCase()
-                                            .includes("cash") ? (
-                                            <Banknote className="h-4 w-4" />
-                                          ) : (
-                                            <CreditCard className="h-4 w-4" />
-                                          )}
-                                          <div className="flex flex-col">
-                                            <p className="text-sm font-medium">
-                                              {payment.method}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                              {formatCurrency(payment.amount)}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  {investigation.performedBy?.fullName || "-"}
+                            {!patient ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={7}
+                                  className="text-center text-muted-foreground h-24"
+                                >
+                                  Enter clinic ID to view patient's x-ray/scan
+                                  history
                                 </TableCell>
                               </TableRow>
-                            ))}
+                            ) : isLoadingPatientData ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <div className="flex justify-center items-center h-24">
+                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ) : patientInvestigations.length > 0 ? (
+                              patientInvestigations.map((investigation) => (
+                                <TableRow key={investigation.id}>
+                                  <TableCell>
+                                    {format(
+                                      new Date(investigation.createdAt),
+                                      "dd MMM yyyy"
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {investigation.service.name}
+                                  </TableCell>
+                                  <TableCell>
+                                    {investigation.service.category}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatCurrency(
+                                      investigation.service.price
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedResult(investigation);
+                                        setShowResultDetails(true);
+                                      }}
+                                    >
+                                      View Result
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        investigation.status === "Completed"
+                                          ? "success"
+                                          : investigation.status ===
+                                            "In Progress"
+                                          ? "warning"
+                                          : investigation.status === "Cancelled"
+                                          ? "destructive"
+                                          : "default"
+                                      }
+                                    >
+                                      {investigation.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {investigation.performedBy?.fullName || "-"}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={7}
+                                  className="text-center text-muted-foreground h-24"
+                                >
+                                  No x-ray/scan history found for this patient
+                                </TableCell>
+                              </TableRow>
+                            )}
                           </TableBody>
                         </Table>
                       </>
@@ -415,10 +486,10 @@ export function XrayPage() {
                         <div className="flex justify-between items-center mb-4">
                           <div>
                             <h3 className="font-semibold">
-                              Process Investigations
+                              Process X-ray/Scan Requests
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              Select investigation to process
+                              Select request to process
                             </p>
                           </div>
                           <Button
@@ -429,7 +500,107 @@ export function XrayPage() {
                           </Button>
                         </div>
 
-                        {/* Existing investigation table */}
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Investigation</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Price</TableHead>
+                              <TableHead>Result</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {!patient ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={7}
+                                  className="text-center text-muted-foreground h-24"
+                                >
+                                  Enter clinic ID to view patient's x-ray/scan
+                                  requests
+                                </TableCell>
+                              </TableRow>
+                            ) : isLoadingPatientData ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  <div className="flex justify-center items-center h-24">
+                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ) : patientInvestigations.filter(
+                                (inv) => inv.status === "Pending"
+                              ).length > 0 ? (
+                              patientInvestigations
+                                .filter(
+                                  (investigation) =>
+                                    investigation.status === "Pending"
+                                )
+                                .map((investigation) => (
+                                  <TableRow
+                                    key={investigation.id}
+                                    className="cursor-pointer hover:bg-muted/50"
+                                    onClick={() =>
+                                      handleRowClick(investigation)
+                                    }
+                                  >
+                                    <TableCell>
+                                      {format(
+                                        new Date(investigation.createdAt),
+                                        "dd MMM yyyy"
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      {investigation.service.name}
+                                    </TableCell>
+                                    <TableCell>
+                                      {investigation.service.category}
+                                    </TableCell>
+                                    <TableCell>
+                                      {formatCurrency(
+                                        investigation.service.price
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <span className="text-muted-foreground italic">
+                                        Click to update result
+                                      </span>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="default">
+                                        {investigation.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) =>
+                                          handleDelete(investigation, e)
+                                        }
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={7}
+                                  className="text-center text-muted-foreground h-24"
+                                >
+                                  No pending x-ray/scan requests found for this
+                                  patient
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
                       </>
                     )}
                   </CardContent>
@@ -442,34 +613,58 @@ export function XrayPage() {
 
       {/* Result Update Dialog */}
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Update X-ray/Scan Result</DialogTitle>
             <DialogDescription>
-              Enter the result or upload a result document
+              Manage the result details or upload a document
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Result</Label>
-              <Textarea
-                value={result}
-                onChange={(e) => setResult(e.target.value)}
-                placeholder="Enter result"
-                className="min-h-[100px]"
-              />
-            </div>
-            <div>
-              <Label>Upload Result Document</Label>
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => setResultFile(e.target.files?.[0] || null)}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Accepted formats: PDF, JPG, JPEG, PNG
-              </p>
-            </div>
+            <Tabs defaultValue="result">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="result">Result</TabsTrigger>
+                <TabsTrigger value="upload">Upload Document</TabsTrigger>
+              </TabsList>
+              <TabsContent value="result">
+                <div className="space-y-4">
+                  <Label>Result</Label>
+                  <Textarea
+                    value={result}
+                    onChange={(e) => setResult(e.target.value)}
+                    placeholder="Enter result"
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="upload">
+                <div className="space-y-4">
+                  <Label>Upload Result Document</Label>
+                  <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) =>
+                        setResultFile(e.target.files?.[0] || null)
+                      }
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <Upload className="h-10 w-10 text-muted-foreground" />
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, JPG, JPEG, PNG (Max. 10MB)
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
             <Button
@@ -496,9 +691,7 @@ export function XrayPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">
-                        Investigation:
-                      </span>
+                      <span className="text-muted-foreground">Test:</span>
                       <div className="font-medium">
                         {selectedResult.service.name}
                       </div>
@@ -573,19 +766,15 @@ export function XrayPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Investigation Request</AlertDialogTitle>
+            <AlertDialogTitle>Delete X-ray/Scan Request</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
-                <p>
-                  Are you sure you want to delete this investigation request?
-                </p>
+                <p>Are you sure you want to delete this x-ray/scan request?</p>
 
                 {investigationToDelete && (
                   <div className="bg-muted p-4 rounded-lg space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Investigation:
-                      </span>
+                      <span className="text-muted-foreground">Test:</span>
                       <span className="font-medium">
                         {investigationToDelete.service.name}
                       </span>

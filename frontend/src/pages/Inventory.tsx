@@ -1,19 +1,19 @@
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DrugsList } from '@/components/inventory/DrugsList';
-import { RestockList } from '@/components/inventory/RestockList';
-import { LowStockList } from '@/components/inventory/LowStockList';
-import { ExpiryList } from '@/components/inventory/ExpiryList';
-import { InventorySettings } from '@/components/inventory/InventorySettings';
-import { MoreHorizontal } from 'lucide-react';
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DrugsList } from "@/components/inventory/DrugsList";
+import { RestockList } from "@/components/inventory/RestockList";
+import { LowStockList } from "@/components/inventory/LowStockList";
+import { ExpiryList } from "@/components/inventory/ExpiryList";
+import { InventorySettings } from "@/components/inventory/InventorySettings";
+import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -21,16 +21,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatPrice } from "@/lib/utils";
-import { EditDrugDialog } from '@/components/inventory/EditDrugDialog';
-import { RestockDrugDialog } from '@/components/inventory/RestockDrugDialog';
-import { useState, useEffect } from 'react';
-import { Drug } from '@/types/inventory';
-import { PendingRestocks } from '@/components/inventory/PendingRestocks';
-import { useAuth } from '@/contexts/AuthContext';
+import { EditDrugDialog } from "@/components/inventory/EditDrugDialog";
+import { RestockDrugDialog } from "@/components/inventory/RestockDrugDialog";
+import { useState, useEffect } from "react";
+import { Drug } from "@/types/inventory";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function InventoryPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === "admin";
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRestockDialog, setShowRestockDialog] = useState(false);
@@ -47,27 +46,25 @@ export function InventoryPage() {
 
   const handleToggleActive = (drug: Drug) => {
     // Add toggle active logic
-    console.log('Toggle active', drug);
+    console.log("Toggle active", drug);
   };
 
   const columns = [
     {
-      header: 'Name',
+      header: "Name",
       cell: (drug: Drug) => drug.name,
     },
     {
-      header: 'Category',
+      header: "Category",
       cell: (drug: Drug) => drug.category,
     },
     {
-      header: 'Form',
+      header: "Form",
       cell: (drug: Drug) => (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="text-sm cursor-help">
-                {drug.saleForm}
-              </div>
+              <div className="text-sm cursor-help">{drug.saleForm}</div>
             </TooltipTrigger>
             <TooltipContent>
               <div>Purchase as: {drug.purchaseForm}</div>
@@ -80,11 +77,11 @@ export function InventoryPage() {
       ),
     },
     {
-      header: 'Strength',
+      header: "Strength",
       cell: (drug: Drug) => `${drug.strength} ${drug.unit}`,
     },
     {
-      header: 'Price',
+      header: "Price",
       cell: (drug: Drug) => (
         <TooltipProvider>
           <Tooltip>
@@ -102,29 +99,33 @@ export function InventoryPage() {
       ),
     },
     {
-      header: 'Stock',
+      header: "Stock",
       cell: (drug: Drug) => (
-        <span className={drug.stock <= drug.minStock ? 'text-red-500' : ''}>
+        <span className={drug.stock <= drug.minStock ? "text-red-500" : ""}>
           {drug.stock}
         </span>
       ),
     },
     {
-      header: 'Expiry Date',
+      header: "Expiry Date",
       cell: (drug: Drug) => new Date(drug.expiryDate).toLocaleDateString(),
     },
     {
-      header: 'Status',
+      header: "Status",
       cell: (drug: Drug) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${
-          drug.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {drug.active ? 'Active' : 'Inactive'}
+        <span
+          className={`px-2 py-1 rounded-full text-xs ${
+            drug.active
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {drug.active ? "Active" : "Inactive"}
         </span>
       ),
     },
     {
-      header: 'Actions',
+      header: "Actions",
       cell: (drug: Drug) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -139,11 +140,11 @@ export function InventoryPage() {
             <DropdownMenuItem onClick={() => handleEdit(drug)}>
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="text-red-600"
               onClick={() => handleToggleActive(drug)}
             >
-              {drug.active ? 'Deactivate' : 'Activate'}
+              {drug.active ? "Deactivate" : "Activate"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -156,11 +157,12 @@ export function InventoryPage() {
 
   useEffect(() => {
     const handleInventoryUpdate = () => {
-      setRefetchTrigger(prev => prev + 1);
+      setRefetchTrigger((prev) => prev + 1);
     };
 
-    window.addEventListener('inventory-updated', handleInventoryUpdate);
-    return () => window.removeEventListener('inventory-updated', handleInventoryUpdate);
+    window.addEventListener("inventory-updated", handleInventoryUpdate);
+    return () =>
+      window.removeEventListener("inventory-updated", handleInventoryUpdate);
   }, []);
 
   return (
@@ -180,7 +182,6 @@ export function InventoryPage() {
               <TabsList>
                 <TabsTrigger value="drugs">Drugs</TabsTrigger>
                 <TabsTrigger value="restock">Restock</TabsTrigger>
-                {isAdmin && <TabsTrigger value="pending">Pending Restocks</TabsTrigger>}
                 <TabsTrigger value="low-stock">Low Stock</TabsTrigger>
                 <TabsTrigger value="expiry">Expiry</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -200,23 +201,18 @@ export function InventoryPage() {
               <TabsContent value="settings">
                 <InventorySettings />
               </TabsContent>
-              {isAdmin && (
-                <TabsContent value="pending">
-                  <PendingRestocks />
-                </TabsContent>
-              )}
             </Tabs>
           </CardContent>
         </Card>
       </div>
 
-      <EditDrugDialog 
+      <EditDrugDialog
         drug={selectedDrug}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         onSuccess={() => {
           setShowEditDialog(false);
-          setRefetchTrigger(prev => prev + 1);
+          setRefetchTrigger((prev) => prev + 1);
         }}
       />
 
@@ -226,9 +222,9 @@ export function InventoryPage() {
         onOpenChange={setShowRestockDialog}
         onSuccess={() => {
           setShowRestockDialog(false);
-          setRefetchTrigger(prev => prev + 1);
+          setRefetchTrigger((prev) => prev + 1);
         }}
       />
     </DashboardLayout>
   );
-} 
+}

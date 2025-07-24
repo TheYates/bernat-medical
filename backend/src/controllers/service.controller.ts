@@ -266,3 +266,56 @@ export const updateServiceRequestStatus = async (
     res.status(500).json({ error: "Failed to update service request status" });
   }
 };
+
+export const updateService = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      categoryId,
+      price,
+      description = null,
+      active = true,
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !categoryId || price === undefined) {
+      return res.status(400).json({
+        message: "Name, category and price are required",
+      });
+    }
+
+    const [result] = await pool.execute(
+      `UPDATE services 
+       SET name = ?, 
+           category_id = ?, 
+           price = ?, 
+           description = ?,
+           active = ?,
+           updated_at = NOW()
+       WHERE id = ?`,
+      [name, categoryId, price, description, active, id]
+    );
+
+    res.json({ message: "Service updated successfully" });
+  } catch (error) {
+    console.error("Error updating service:", error);
+    res.status(500).json({ message: "Failed to update service" });
+  }
+};
+
+export const getServiceCategories = async (req: Request, res: Response) => {
+  try {
+    const [categories] = await pool.execute(
+      `SELECT DISTINCT category as name 
+       FROM services 
+       WHERE category IS NOT NULL 
+       ORDER BY category ASC`
+    );
+
+    res.json(categories);
+  } catch (error) {
+    console.error("Error fetching service categories:", error);
+    res.status(500).json({ message: "Failed to fetch service categories" });
+  }
+};

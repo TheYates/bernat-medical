@@ -5,10 +5,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { ServiceActions } from './ServiceActions';
-import type { Service } from '@/types/service';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { ServiceActions } from "../services/ServiceActions";
+import type { Service } from "@/types/service";
 
 interface ServiceTableProps {
   services: Service[];
@@ -16,15 +16,19 @@ interface ServiceTableProps {
   onServiceUpdated: () => void;
 }
 
-export function ServiceTable({ services, isLoading, onServiceUpdated }: ServiceTableProps) {
+export function ServiceTable({
+  services,
+  isLoading,
+  onServiceUpdated,
+}: ServiceTableProps) {
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP'
+    return new Intl.NumberFormat("en-GH", {
+      style: "currency",
+      currency: "GHS",
     }).format(price);
   };
 
@@ -50,7 +54,7 @@ export function ServiceTable({ services, isLoading, onServiceUpdated }: ServiceT
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {service.description || 'No description'}
+              {service.description || "No description"}
             </TableCell>
             <TableCell>{formatPrice(service.price)}</TableCell>
             <TableCell>
@@ -59,11 +63,14 @@ export function ServiceTable({ services, isLoading, onServiceUpdated }: ServiceT
               </Badge>
             </TableCell>
             <TableCell>
-              <ServiceActions service={service} onServiceUpdated={onServiceUpdated} />
+              <ServiceActions
+                service={service}
+                onServiceUpdated={onServiceUpdated}
+              />
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
-} 
+}

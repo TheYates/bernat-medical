@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { UserTable } from './UserTable';
-import { CreateUserDialog } from './CreateUserDialog';
-import { useUsers } from '@/hooks/useUsers';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { UserTable } from "./UserTable";
+import { CreateUserDialog } from "./CreateUserDialog";
+import { useUsers } from "@/hooks/useUsers";
 
 export function UserManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -18,17 +18,17 @@ export function UserManagement() {
           Add User
         </Button>
       </div>
-      
+
       {error && (
         <div className="text-red-500">Error loading users: {error}</div>
       )}
-      
+
       <UserTable users={users} isLoading={isLoading} onUserUpdated={refetch} />
-      
+
       <CreateUserDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
     </div>
   );
-} 
+}
